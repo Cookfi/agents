@@ -19,4 +19,4 @@ A degen cooking up alpha and gains.
 - Then run
   - `pnpm install`
   - `pnpm build`
-  - `pnpm start:debug --character="../characters/dobby.character.json`
+  - `pnpm start:debug --character="../characters/cookfi.character.json"`

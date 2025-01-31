@@ -262,6 +262,9 @@ importers:
       '@elizaos/plugin-conflux':
         specifier: workspace:*
         version: link:../packages/plugin-conflux
+      '@elizaos/plugin-cookfi':
+        specifier: workspace:*
+        version: link:../packages/plugin-cookfi
       '@elizaos/plugin-cosmos':
         specifier: workspace:*
         version: link:../packages/plugin-cosmos
@@ -2404,6 +2407,28 @@ importers:
       '@biomejs/biome':
         specifier: 1.9.4
         version: 1.9.4
+
+  packages/plugin-cookfi:
+    dependencies:
+      '@elizaos/core':
+        specifier: workspace:*
+        version: link:../core
+      tsup:
+        specifier: 8.3.5
+        version: 8.3.5(@swc/core@1.10.12(@swc/helpers@0.5.15))(jiti@2.4.2)(postcss@8.5.1)(tsx@4.19.2)(typescript@5.7.3)(yaml@2.7.0)
+      whatwg-url:
+        specifier: 7.1.0
+        version: 7.1.0
+      ws:
+        specifier: ^8.0.0
+        version: 8.18.0(bufferutil@4.0.9)(utf-8-validate@6.0.5)
+    devDependencies:
+      '@vitest/coverage-v8':
+        specifier: ^1.2.1
+        version: 1.6.0(vitest@1.2.1(@types/node@22.12.0)(jsdom@25.0.1(bufferutil@4.0.9)(canvas@2.11.2(encoding@0.1.13))(utf-8-validate@6.0.5))(terser@5.37.0))
+      vitest:
+        specifier: ^1.2.1
+        version: 1.2.1(@types/node@22.12.0)(jsdom@25.0.1(bufferutil@4.0.9)(canvas@2.11.2(encoding@0.1.13))(utf-8-validate@6.0.5))(terser@5.37.0)
 
   packages/plugin-cosmos:
     dependencies:
