@@ -28,19 +28,6 @@ export interface TransferResponse {
     amount: number;
 }
 
-export interface TokenInfo {
-    address: string;
-    chainId: number;
-    decimals: number;
-    name: string;
-    symbol: string;
-    logoURI?: string;
-    tags?: string[];
-    extensions?: {
-        [key: string]: any;
-    };
-}
-
 export interface LendParams {
     token: string;
     amount: number;
