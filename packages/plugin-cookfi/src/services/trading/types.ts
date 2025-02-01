@@ -30,10 +30,15 @@ export interface TransferResponse {
 
 export interface TokenInfo {
     address: string;
-    symbol: string;
-    name: string;
+    chainId: number;
     decimals: number;
-    supply: number;
+    name: string;
+    symbol: string;
+    logoURI?: string;
+    tags?: string[];
+    extensions?: {
+        [key: string]: any;
+    };
 }
 
 export interface LendParams {
@@ -49,13 +54,11 @@ export interface LendResponse {
 }
 
 export interface StakeParams {
-    token: string;
     amount: number;
-    duration?: number;
 }
 
 export interface StakeResponse {
     signature: string;
     amount: number;
-    rewards: number;
+    jupsolAmount: number;
 }

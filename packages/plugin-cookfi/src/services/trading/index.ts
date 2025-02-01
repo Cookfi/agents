@@ -16,10 +16,27 @@ import type {
     StakeResponse,
 } from "./types";
 
+interface JupiterTokenList {
+    [address: string]: TokenInfo;
+}
+
+interface DexScreenerResponse {
+    pairs: Array<{
+        chainId: string;
+        fdv?: number;
+        baseToken: {
+            address: string;
+        };
+    }>;
+}
+
 export class TradingService {
     private connection: Connection;
     private agent: SolanaAgentKit;
     private lastRequestTime: number = 0;
+    private tokenListCache: JupiterTokenList | null = null;
+    private tokenListLastUpdate: number = 0;
+    private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
     constructor(config: TradingServiceConfig) {
         this.connection = new Connection(
@@ -49,6 +66,51 @@ export class TradingService {
         }
 
         this.lastRequestTime = Date.now();
+    }
+
+    private async refreshTokenListCache(): Promise<void> {
+        const now = Date.now();
+        if (
+            this.tokenListCache &&
+            now - this.tokenListLastUpdate < this.CACHE_TTL
+        ) {
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                TRADING_CONFIG.ENDPOINTS.JUPITER_TOKEN_LIST
+            );
+            this.tokenListCache = await response.json();
+            this.tokenListLastUpdate = now;
+        } catch (error) {
+            elizaLogger.error("Failed to refresh token list cache:", error);
+            throw error;
+        }
+    }
+
+    private async getTokenAddressFromTicker(
+        ticker: string
+    ): Promise<string | null> {
+        try {
+            const response = await fetch(
+                `${TRADING_CONFIG.ENDPOINTS.DEXSCREENER_SEARCH}?q=${ticker}`
+            );
+            const data: DexScreenerResponse = await response.json();
+
+            // Filter and sort by FDV
+            const pairs = data.pairs
+                .filter((pair) => pair.chainId === "solana")
+                .sort((a, b) => (b.fdv || 0) - (a.fdv || 0));
+
+            return pairs[0]?.baseToken.address || null;
+        } catch (error) {
+            elizaLogger.error(
+                "Failed to get token address from ticker:",
+                error
+            );
+            return null;
+        }
     }
 
     /**
@@ -119,21 +181,45 @@ export class TradingService {
 
     /**
      * Get token information
-     * @param tokenAddress The token's mint address
+     * @param tokenAddress The token's mint address or ticker symbol
      * @returns Promise containing token information
      */
     async getTokenInfo(tokenAddress: string): Promise<TokenInfo> {
         await this.checkRateLimit();
         try {
+            await this.refreshTokenListCache();
+
+            // Check if input is a ticker symbol
+            if (tokenAddress.length < 32) {
+                const address = await this.getTokenAddressFromTicker(
+                    tokenAddress
+                );
+                if (!address) {
+                    throw new Error(
+                        `Token not found for ticker: ${tokenAddress}`
+                    );
+                }
+                tokenAddress = address;
+            }
+
+            // Try to get from Jupiter token list first
+            if (this.tokenListCache && this.tokenListCache[tokenAddress]) {
+                return this.tokenListCache[tokenAddress];
+            }
+
+            // Fallback to on-chain data
             const tokenMint = new PublicKey(tokenAddress);
             const mintInfo = await getMint(this.connection, tokenMint);
 
             return {
                 address: tokenAddress,
-                symbol: "Unknown", // We'd need additional integration to get token metadata
-                name: "Unknown", // We'd need additional integration to get token metadata
+                chainId: 101, // Solana mainnet
                 decimals: mintInfo.decimals,
-                supply: Number(mintInfo.supply),
+                name: "Unknown Token",
+                symbol: "UNKNOWN",
+                extensions: {
+                    supply: Number(mintInfo.supply),
+                },
             };
         } catch (error) {
             elizaLogger.error("Get token info failed:", error);
@@ -149,8 +235,7 @@ export class TradingService {
     async lend(params: LendParams): Promise<LendResponse> {
         await this.checkRateLimit();
         try {
-            // Note: Lending functionality might need to be implemented separately
-            // as it's not directly available in the base Solana Agent Kit
+            // Implementation here
             throw new Error(
                 "Lending functionality not implemented in Solana Agent Kit"
             );
@@ -161,18 +246,31 @@ export class TradingService {
     }
 
     /**
-     * Stake tokens
-     * @param params Staking parameters including token and amount
+     * Stake SOL to receive jupSOL
+     * @param params Staking parameters including amount
      * @returns Promise containing staking transaction signature
      */
     async stake(params: StakeParams): Promise<StakeResponse> {
         await this.checkRateLimit();
         try {
-            // Note: Staking functionality might need to be implemented separately
-            // as it's not directly available in the base Solana Agent Kit
-            throw new Error(
-                "Staking functionality not implemented in Solana Agent Kit"
-            );
+            if (params.amount < TRADING_CONFIG.STAKE.MINIMUM_AMOUNT) {
+                throw new Error(
+                    `Minimum staking amount is ${TRADING_CONFIG.STAKE.MINIMUM_AMOUNT} SOL`
+                );
+            }
+
+            // Use the agent's stake method
+            const signature = await this.agent.stake(params.amount);
+
+            // Get jupSOL balance after staking
+            const jupsolMint = new PublicKey(TRADING_CONFIG.TOKENS.JUPSOL);
+            const jupsolBalance = await this.agent.getBalance(jupsolMint);
+
+            return {
+                signature,
+                amount: params.amount,
+                jupsolAmount: jupsolBalance,
+            };
         } catch (error) {
             elizaLogger.error("Staking failed:", error);
             throw error;
