@@ -5,7 +5,7 @@ import {
     type Memory,
     type State,
 } from "@elizaos/core";
-import TradingService from "../services/trading";
+import solanaAgentKit from "../services/trading";
 import { TRADING_CONFIG } from "../services/trading/config";
 
 interface StakeData {
@@ -41,10 +41,10 @@ const stake: Action = {
         options: { [key: string]: unknown }
     ): Promise<boolean> => {
         try {
-            const tradingService = new TradingService({});
+            const agent = new solanaAgentKit({});
             const data = message.content?.data as StakeData;
 
-            const result = await tradingService.stake({
+            const result = await agent.stake({
                 amount: data.amount,
             });
 

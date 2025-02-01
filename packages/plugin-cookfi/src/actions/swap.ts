@@ -5,7 +5,7 @@ import {
     type Memory,
     type State,
 } from "@elizaos/core";
-import TradingService from "../services/trading";
+import solanaAgentKit from "../services/trading";
 
 interface SwapData {
     fromToken: string;
@@ -48,7 +48,7 @@ const swap: Action = {
         options: { [key: string]: unknown }
     ): Promise<boolean> => {
         try {
-            const tradingService = new TradingService({});
+            const agent = new solanaAgentKit({});
             const data = message.content?.data as SwapData;
 
             // Convert token symbols to addresses if needed
@@ -61,7 +61,7 @@ const swap: Action = {
                     data.toToken.toUpperCase() as keyof typeof COMMON_TOKENS
                 ] || data.toToken;
 
-            const result = await tradingService.swap({
+            const result = await agent.swap({
                 fromToken,
                 toToken,
                 amount: data.amount,
