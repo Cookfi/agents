@@ -1,11 +1,10 @@
-import { elizaLogger } from '@elizaos/core';
+import * as dotenv from 'dotenv';
+import axios from 'axios';
+dotenv.config();
+
 import { COOKIE_CONFIG } from './config';
-import { formatSearchParams } from './formatters';
-import type {
-    CookieServiceConfig,
-    SearchTweetsParams,
-    SearchTweetsResponse
-} from './types';
+import { formatCookieData } from './formatters';
+import type { CookieServiceConfig, SearchTweetsParams, CookieAPIResponse } from './types';
 
 export class CookieService {
     private apiKey: string;
@@ -13,63 +12,88 @@ export class CookieService {
     private lastRequestTime: number = 0;
 
     constructor(config: CookieServiceConfig) {
-        this.apiKey = process.env.COOKFI_COOKIE_API_KEY;
+        if (!process.env.COOKIE_API_KEY) {
+            throw new Error('COOKIE_API_KEY is not set');
+        }
+        this.apiKey = process.env.COOKIE_API_KEY;
         this.baseUrl = config.baseUrl || COOKIE_CONFIG.BASE_URL;
     }
 
     private async checkRateLimit(): Promise<void> {
         const now = Date.now();
         const timeSinceLastRequest = now - this.lastRequestTime;
-        
         if (timeSinceLastRequest < (60000 / COOKIE_CONFIG.RATE_LIMIT.MAX_REQUESTS_PER_MINUTE)) {
-            const waitTime = (60000 / COOKIE_CONFIG.RATE_LIMIT.MAX_REQUESTS_PER_MINUTE) - timeSinceLastRequest;
-            await new Promise(resolve => setTimeout(resolve, waitTime));
+            await new Promise(resolve => setTimeout(resolve, (60000 / COOKIE_CONFIG.RATE_LIMIT.MAX_REQUESTS_PER_MINUTE) - timeSinceLastRequest));
         }
-        
         this.lastRequestTime = Date.now();
     }
 
-    private async makeRequest<T>(endpoint: string, params?: URLSearchParams): Promise<T> {
+    async searchTweets(params: SearchTweetsParams): Promise<string[]> {
         await this.checkRateLimit();
+        const from = new Date();
+        from.setDate(from.getDate() - 3);
+        const to = new Date();
 
-        const url = `${this.baseUrl}${endpoint}${params ? `?${params.toString()}` : ''}`;
-        
-        try {
-            const response = await fetch(url, {
+        const response = await axios.get<CookieAPIResponse>(
+            `${this.baseUrl}${COOKIE_CONFIG.ENDPOINTS.SEARCH_TWEETS}/${encodeURIComponent(params.query)}`,
+            {
+                params: { 
+                    from: from.toISOString(), 
+                    to: to.toISOString(),
+                    max_results: params.max_results || COOKIE_CONFIG.DEFAULT_MAX_RESULTS
+                },
                 headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
-                    'Content-Type': 'application/json',
+                    'x-api-key': this.apiKey,
+                    'Content-Type': 'application/json'
                 }
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(`Cookie API error: ${JSON.stringify(error)}`);
             }
+        );
 
-            return response.json() as Promise<T>;
-        } catch (error) {
-            elizaLogger.error('Cookie API request failed:', error);
-            throw error;
-        }
+        return formatCookieData(response.data);
     }
 
-    /**
-     * Search for tweets based on provided parameters
-     * @param params Search parameters including query and optional filters
-     * @returns Promise containing tweet search results
-     */
-    async searchTweets(params: SearchTweetsParams): Promise<SearchTweetsResponse> {
-        const searchParams = formatSearchParams({
-            ...params,
-            max_results: params.max_results || COOKIE_CONFIG.DEFAULT_MAX_RESULTS
-        });
-
-        return this.makeRequest<SearchTweetsResponse>(
-            COOKIE_CONFIG.ENDPOINTS.SEARCH_TWEETS,
-            searchParams
+    private async processBatch(queries: string[], maxResults: number): Promise<string[]> {
+        // Process up to N queries simultaneously while respecting rate limits
+        const batchPromises = queries.map(query => 
+            this.searchTweets({ query, max_results: maxResults })
         );
+        const results = await Promise.all(batchPromises);
+        return results.flat();
+    }
+
+    async searchMultipleQueries(queries: string[], maxResults: number = 10): Promise<string[]> {
+        // Calculate actual requests we can make per minute considering weight
+        const WEIGHT_PER_REQUEST = 12;
+        const actualRequestsPerMinute = Math.floor(COOKIE_CONFIG.RATE_LIMIT.MAX_REQUESTS_PER_MINUTE / WEIGHT_PER_REQUEST); // = 5
+        
+        // Use a smaller batch size to be safe (3 requests per batch)
+        const batchSize = Math.min(3, actualRequestsPerMinute);
+        const allTweets: string[] = [];
+        
+        // Process queries in smaller batches
+        for (let i = 0; i < queries.length; i += batchSize) {
+            const batch = queries.slice(i, i + batchSize);
+            const batchResults = await this.processBatch(batch, maxResults);
+            allTweets.push(...batchResults);
+            
+            // Add a longer delay between batches to respect the weighted rate limit
+            if (i + batchSize < queries.length) {
+                // Wait for 20 seconds between batches to be safe
+                // (60 seconds / 3 batches = 20 seconds)
+                await new Promise(resolve => setTimeout(resolve, 20000));
+            }
+        }
+        
+        return allTweets;
     }
 }
+
+// // Simple test
+// if (require.main === module) {
+//     const cookieService = new CookieService({});
+//     cookieService.searchMultipleQueries(['bitcoin', 'ethereum' , 'solana', 'elon musk'], 20)
+//         .then(tweets => console.log(tweets))
+//         .catch(console.error);
+// }
 
 export default CookieService;

@@ -1,54 +1,45 @@
-export interface CookieTweet {
-    id: string;
+export interface Tweet {
+    authorUsername: string;
+    createdAt: string;
+    engagementsCount: number;
+    impressionsCount: number;
+    isQuote: boolean;
+    isReply: boolean;
+    likesCount: number;
+    quotesCount: number;
+    repliesCount: number;
+    retweetsCount: number;
+    smartEngagementPoints: number;
     text: string;
-    author_id: string;
-    created_at: string;
-    public_metrics: {
-        retweet_count: number;
-        reply_count: number;
-        like_count: number;
-        quote_count: number;
-    };
-    entities?: {
-        mentions?: Array<{
-            start: number;
-            end: number;
-            username: string;
-            id: string;
-        }>;
-        hashtags?: Array<{
-            start: number;
-            end: number;
-            tag: string;
-        }>;
-        urls?: Array<{
-            start: number;
-            end: number;
-            url: string;
-            expanded_url: string;
-            display_url: string;
-        }>;
-    };
+    matchingScore: number;
 }
 
-export interface SearchTweetsResponse {
-    data: CookieTweet[];
-    meta: {
-        result_count: number;
-        next_token?: string;
+export interface CookieAPIResponse {
+    ok: Tweet[];
+    success: boolean;
+    error: string | null;
+}
+
+export interface FormattedTweet {
+    author: string;
+    date: string;
+    text: string;
+    engagement: {
+        likes: number;
+        retweets: number;
+        replies: number;
+        quotes: number;
+        impressions: number;
+        total: number;
     };
+    score: number;
 }
 
 export interface SearchTweetsParams {
     query: string;
     max_results?: number;
-    next_token?: string;
-    start_time?: string;
-    end_time?: string;
-    sort_order?: "recency" | "relevancy";
 }
 
 export interface CookieServiceConfig {
-    apiKey: string;
-    baseUrl: string;
+    baseUrl?: string;
 }

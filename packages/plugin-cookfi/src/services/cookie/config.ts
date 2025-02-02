@@ -1,8 +1,8 @@
 export const COOKIE_CONFIG = {
-    BASE_URL: "https://api.cookie.fun",
+    BASE_URL: "https://api.cookie.fun/v1/hackathon",
     DEFAULT_MAX_RESULTS: 10,
     ENDPOINTS: {
-        SEARCH_TWEETS: "/v1/tweets/search"
+        SEARCH_TWEETS: "/search"
     },
     RATE_LIMIT: {
         MAX_REQUESTS_PER_MINUTE: 60,
