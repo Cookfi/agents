@@ -5,7 +5,7 @@ import {
     type Memory,
     type State,
 } from "@elizaos/core";
-import solanaAgentKit from "../services/trading";
+import TradingService from "../services/trading";
 
 interface SwapData {
     fromToken: string;
@@ -48,7 +48,7 @@ const swap: Action = {
         options: { [key: string]: unknown }
     ): Promise<boolean> => {
         try {
-            const agent = new solanaAgentKit({});
+            const agent = new TradingService({});
             const data = message.content?.data as SwapData;
 
             // Convert token symbols to addresses if needed

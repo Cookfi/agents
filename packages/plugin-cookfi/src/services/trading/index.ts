@@ -14,7 +14,7 @@ import type {
     StakeResponse,
 } from "./types";
 
-export class solanaAgentKit {
+export class TradingService {
     private connection: Connection;
     private agent: SolanaAgentKit;
 
@@ -144,4 +144,4 @@ export class solanaAgentKit {
     }
 }
 
-export default solanaAgentKit;
+export default TradingService;
