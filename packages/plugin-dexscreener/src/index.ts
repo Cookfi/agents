@@ -1,12 +1,12 @@
 import type { Plugin } from "@elizaos/core";
 import { TokenPriceAction } from "./actions/tokenAction";
-import { TokenPriceEvaluator } from "./evaluators/tokenEvaluator";
-import { TokenPriceProvider } from "./providers/tokenProvider";
 import {
-    LatestTokensAction,
     LatestBoostedTokensAction,
+    LatestTokensAction,
     TopBoostedTokensAction,
 } from "./actions/trendsAction";
+import { TokenPriceEvaluator } from "./evaluators/tokenEvaluator";
+import { TokenPriceProvider } from "./providers/tokenProvider";
 
 export * as actions from "./actions";
 export * as evaluators from "./evaluators";
