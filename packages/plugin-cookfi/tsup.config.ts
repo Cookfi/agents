@@ -11,8 +11,18 @@ export default defineConfig({
         "fs",
         "path",
         "@reflink/reflink",
+        "@node-llama-cpp",
         "https",
         "http",
-        "agentkeepalive"
+        "agentkeepalive",
+        "safe-buffer",
+        "base-x",
+        "bs58",
+        "borsh",
+        "@solana/buffer-layout",
+        "stream",
+        "buffer",
+        "querystring",
+        "amqplib"
     ]
 });
