@@ -1,8 +1,7 @@
 import { elizaLogger } from "@elizaos/core";
+import type { TokenResult } from "../../types/token";
 import type {
-    BirdeyePortfolioResponse,
-    PortfolioBalance,
-    TokenBalance
+    BirdeyePortfolioResponse
 } from "./types";
 
 const BIRDEYE_ENDPOINT = "https://public-api.birdeye.so/v1/wallet/token_list";
@@ -53,53 +52,34 @@ export class PortfolioService {
     }
 
     /**
-     * Transform Birdeye response to our PortfolioBalance format
+     * Get portfolio tokens with balance information
      */
-    private transformPortfolioData(
-        data: BirdeyePortfolioResponse | null
-    ): PortfolioBalance {
-        const emptyBalance: PortfolioBalance = {
-            sol: { amount: 0, usdValue: 0 },
-            tokens: [],
-            totalUsdValue: 0
-        };
-
+    async getTokens(): Promise<TokenResult[]> {
+        const data = await this.fetchPortfolioData();
+        
         if (!data?.data?.items) {
-            return emptyBalance;
+            return [];
         }
 
         try {
-            const tokens: TokenBalance[] = data.data.items.map(item => ({
-                mint: item.address,
-                symbol: item.symbol,
-                name: item.name,
-                logo: item.logoURI,
-                amount: item.amount,
-                decimals: item.decimals,
-                usdValue: item.value,
-                price: item.price
-            }));
+            const tokens = data.data.items
+                .filter(item => item.symbol !== "SOL") // Filter out SOL token
+                .map(item => ({
+                    symbol: item.symbol,
+                    name: item.name,
+                    address: item.address,
+                    chainId: "solana",
+                    balance: {
+                        amount: item.amount,
+                        usdValue: item.value
+                    }
+                }));
 
-            return {
-                sol: {
-                    amount: tokens.find(t => t.symbol === "SOL")?.amount || 0,
-                    usdValue: data.data.solValue
-                },
-                tokens: tokens.filter(t => t.symbol !== "SOL"),
-                totalUsdValue: data.data.totalValue
-            };
+            return tokens;
         } catch (error) {
             elizaLogger.warn("Failed to transform portfolio data:", error);
-            return emptyBalance;
+            return [];
         }
-    }
-
-    /**
-     * Get complete portfolio balance including USD values
-     */
-    async getPortfolioBalance(): Promise<PortfolioBalance> {
-        const birdeyeData = await this.fetchPortfolioData();
-        return this.transformPortfolioData(birdeyeData);
     }
 }
 

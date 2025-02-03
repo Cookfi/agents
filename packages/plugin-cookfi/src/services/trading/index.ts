@@ -3,15 +3,15 @@ import { Connection, PublicKey } from "@solana/web3.js";
 import { SolanaAgentKit } from "solana-agent-kit";
 import { TRADING_CONFIG } from "./config";
 import type {
-    TradingServiceConfig,
-    SwapParams,
-    SwapResponse,
-    TransferParams,
-    TransferResponse,
     LendParams,
     LendResponse,
     StakeParams,
     StakeResponse,
+    SwapParams,
+    SwapResponse,
+    TradingServiceConfig,
+    TransferParams,
+    TransferResponse,
 } from "./types";
 
 export class TradingService {

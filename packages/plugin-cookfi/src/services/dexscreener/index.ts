@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { TokenResult } from '../../types/token';
 import { DEXSCREENER_CONFIG } from './config';
 import type {
     BoostedToken,
@@ -14,26 +15,20 @@ export class DexScreenerService {
         this.baseUrl = "https://api.dexscreener.com/latest";
     }
 
-    async getTrendingTokens(params: SearchTokensParams = {}): Promise<TokenPair[]> {
+    async getTrendingTokens(params: SearchTokensParams = {}): Promise<TokenResult[]> {
         const boostedResponse = await axios.get<BoostedToken[]>(
             "https://api.dexscreener.com/token-boosts/top/v1"
         );
         const maxResults = params.maxResults || DEXSCREENER_CONFIG.DEFAULT_MAX_RESULTS;
         const limitedTokens = boostedResponse.data.slice(0, maxResults);
         
-        const pairs: TokenPair[] = [];
-        
-        for (const token of limitedTokens) {
-            const pairResponse = await axios.get<DexScreenerAPIResponse>(
-                `${this.baseUrl}/dex/pairs/${token.tokenAddress}`
-            );
-            
-            if (pairResponse.data.pairs?.[0]) {
-                pairs.push(pairResponse.data.pairs[0]);
-            }
-        }
-        
-        return pairs;
+        return limitedTokens.map(token => ({
+            symbol: token.tokenAddress.split("/").pop() || "",
+            name: token.description || token.tokenAddress,
+            address: token.tokenAddress,
+            chainId: token.chainId
+            // balance is undefined for trending tokens
+        }));
     }
 
     async getTokenInfo(tokenAddress: string, chainId: string = 'solana'): Promise<TokenPair[]> {
