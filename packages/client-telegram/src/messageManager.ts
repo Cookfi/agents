@@ -1,38 +1,36 @@
-import type { Message } from "@telegraf/types";
-import type { Context, Telegraf } from "telegraf";
 import {
     composeContext,
-    elizaLogger,
-    ServiceType,
     composeRandomUser,
-} from "@elizaos/core";
-import { getEmbeddingZeroVector } from "@elizaos/core";
-import {
     type Content,
+    elizaLogger,
+    generateMessageResponse, generateShouldRespond,
+    getEmbeddingZeroVector,
     type HandlerCallback,
     type IAgentRuntime,
     type IImageDescriptionService,
+    type Media,
     type Memory,
     ModelClass,
+    ServiceType,
     type State,
-    type UUID,
-    type Media,
+    stringToUuid,
+    type UUID
 } from "@elizaos/core";
-import { stringToUuid } from "@elizaos/core";
-import { generateMessageResponse, generateShouldRespond } from "@elizaos/core";
-import {
-    telegramMessageHandlerTemplate,
-    telegramShouldRespondTemplate,
-    telegramAutoPostTemplate,
-    telegramPinnedMessageTemplate,
-} from "./templates";
-import { cosineSimilarity, escapeMarkdown } from "./utils";
+import type { Message } from "@telegraf/types";
+import type { Context, Telegraf } from "telegraf";
 import {
     MESSAGE_CONSTANTS,
-    TIMING_CONSTANTS,
     RESPONSE_CHANCES,
     TEAM_COORDINATION,
+    TIMING_CONSTANTS,
 } from "./constants";
+import {
+    telegramAutoPostTemplate,
+    telegramMessageHandlerTemplate,
+    telegramPinnedMessageTemplate,
+    telegramShouldRespondTemplate,
+} from "./templates";
+import { cosineSimilarity, escapeMarkdown } from "./utils";
 
 import fs from "fs";
 
@@ -925,16 +923,20 @@ export class MessageManager {
             const sentMessages: Message.TextMessage[] = [];
 
             for (let i = 0; i < chunks.length; i++) {
-                const chunk = escapeMarkdown(chunks[i]);
+                const chunk = content.parseMode === "HTML" ? 
+                    chunks[i] : 
+                    content.parseMode === "MarkdownV2" ? 
+                        chunks[i] : 
+                        escapeMarkdown(chunks[i]);
+
                 const sentMessage = (await ctx.telegram.sendMessage(
                     ctx.chat.id,
                     chunk,
                     {
-                        reply_parameters:
-                            i === 0 && replyToMessageId
-                                ? { message_id: replyToMessageId }
-                                : undefined,
-                        parse_mode: "Markdown",
+                        reply_parameters: i === 0 && replyToMessageId
+                            ? { message_id: replyToMessageId }
+                            : undefined,
+                        parse_mode: content.parseMode || "Markdown"  // Use parseMode from content or default to Markdown
                     }
                 )) as Message.TextMessage;
 
@@ -1382,6 +1384,8 @@ export class MessageManager {
                 );
 
                 if (!responseContent || !responseContent.text) return;
+
+                if(responseContent.action === "ANALYZE_TWEETS") responseContent.text = "Analyzing tweets...";
 
                 // Execute callback to send messages and log memories
                 const responseMessages = await callback(responseContent);
