@@ -1,50 +1,73 @@
 import { elizaLogger } from "@elizaos/core";
-import { PORTFOLIO_CONFIG } from "./config";
 import type {
     BirdeyePortfolioResponse,
     PortfolioBalance,
-    PortfolioServiceConfig,
     TokenBalance
 } from "./types";
+
+const BIRDEYE_ENDPOINT = "https://public-api.birdeye.so/v1/wallet/token_list";
 
 export class PortfolioService {
     private walletAddress: string;
 
-    constructor(config: PortfolioServiceConfig) {
-        this.walletAddress = config.walletAddress;
+    constructor() {
+        this.walletAddress = process.env.WALLET_PUBLIC_KEY || "";
+        if (!this.walletAddress) {
+            elizaLogger.warn("WALLET_PUBLIC_KEY is not set in environment");
+        }
     }
 
     /**
      * Fetch portfolio data from Birdeye API
      */
-    private async fetchPortfolioData(): Promise<BirdeyePortfolioResponse> {
+    private async fetchPortfolioData(): Promise<BirdeyePortfolioResponse | null> {
+        if (!this.walletAddress || !process.env.COOKFI_BIRDEYE_API_KEY) {
+            elizaLogger.warn(
+                "Missing required environment variables for portfolio service"
+            );
+            return null;
+        }
+
         try {
             const response = await fetch(
-                `${PORTFOLIO_CONFIG.BIRDEYE_ENDPOINT}?wallet=${this.walletAddress}`,
+                `${BIRDEYE_ENDPOINT}?wallet=${this.walletAddress}`,
                 {
                     headers: {
-                        'X-API-KEY': process.env.COOKFI_BIRDEYE_API_KEY,
-                        'Accept': 'application/json',
+                        "X-API-KEY": process.env.COOKFI_BIRDEYE_API_KEY,
+                        Accept: "application/json"
                     }
                 }
             );
 
             if (!response.ok) {
-                throw new Error(`Birdeye API error: ${response.status}`);
+                elizaLogger.warn(`Birdeye API error: ${response.status}`);
+                return null;
             }
 
             const data = await response.json();
             return data as BirdeyePortfolioResponse;
         } catch (error) {
-            elizaLogger.error("Failed to fetch portfolio data:", error);
-            throw error;
+            elizaLogger.warn("Failed to fetch portfolio data:", error);
+            return null;
         }
     }
 
     /**
      * Transform Birdeye response to our PortfolioBalance format
      */
-    private transformPortfolioData(data: BirdeyePortfolioResponse): PortfolioBalance {
+    private transformPortfolioData(
+        data: BirdeyePortfolioResponse | null
+    ): PortfolioBalance {
+        const emptyBalance: PortfolioBalance = {
+            sol: { amount: 0, usdValue: 0 },
+            tokens: [],
+            totalUsdValue: 0
+        };
+
+        if (!data?.data?.items) {
+            return emptyBalance;
+        }
+
         try {
             const tokens: TokenBalance[] = data.data.items.map(item => ({
                 mint: item.address,
@@ -59,16 +82,15 @@ export class PortfolioService {
 
             return {
                 sol: {
-                    // SOL amount is included in the items array
-                    amount: tokens.find(t => t.symbol === 'SOL')?.amount || 0,
+                    amount: tokens.find(t => t.symbol === "SOL")?.amount || 0,
                     usdValue: data.data.solValue
                 },
-                tokens: tokens.filter(t => t.symbol !== 'SOL'), // Remove SOL from tokens array
+                tokens: tokens.filter(t => t.symbol !== "SOL"),
                 totalUsdValue: data.data.totalValue
             };
         } catch (error) {
-            elizaLogger.error("Failed to transform portfolio data:", error);
-            throw error;
+            elizaLogger.warn("Failed to transform portfolio data:", error);
+            return emptyBalance;
         }
     }
 
@@ -76,13 +98,8 @@ export class PortfolioService {
      * Get complete portfolio balance including USD values
      */
     async getPortfolioBalance(): Promise<PortfolioBalance> {
-        try {
-            const birdeyeData = await this.fetchPortfolioData();
-            return this.transformPortfolioData(birdeyeData);
-        } catch (error) {
-            elizaLogger.error("Failed to get portfolio balance:", error);
-            throw error;
-        }
+        const birdeyeData = await this.fetchPortfolioData();
+        return this.transformPortfolioData(birdeyeData);
     }
 }
 
