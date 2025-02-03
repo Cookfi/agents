@@ -1,4 +1,5 @@
 import type { SearchTweetsParams } from './types';
+import { CookieAPIResponse } from './types';
 
 export function formatSearchParams(params: SearchTweetsParams): URLSearchParams {
     const searchParams = new URLSearchParams();
@@ -24,4 +25,11 @@ export function formatSearchParams(params: SearchTweetsParams): URLSearchParams 
     }
 
     return searchParams;
+}
+
+export function formatCookieData(response: CookieAPIResponse): string[] {
+    if (!response.ok || !Array.isArray(response.ok)) {
+        return [];
+    }
+    return response.ok.map(tweet => tweet.text);
 } 
