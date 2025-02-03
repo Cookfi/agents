@@ -4,6 +4,7 @@ import { RunnableSequence } from "@langchain/core/runnables";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { CookieService } from '../cookie';
 import { ANALYSIS_PROMPT } from './prompt';
+import { DexScreenerService } from '../dexscreener';
 
 dotenv.config();
 
@@ -55,39 +56,85 @@ export class DecisionMakerService {
     }
 }
 
-// Helper function to create ServiceData from CookieService
-export const cookie = async (tokens: string[]): Promise<ServiceData> => {
-    const service = new CookieService({});
-    const data = await service.searchMultipleQueries(tokens);
-    return {
-        data,
-        source: 'cookie'
-    };
-};
-
-// dexscreener is not implemented yet
-// export const dexscreener = async (tokens: string[]): Promise<ServiceData> => {
-//     const service = new DexScreenerService({});
-//     const data = await service.getPrices(tokens);
-//     return {
-//         data,
-//         source: 'dexscreener'
-//     };
-// };
-
-// Example usage:
-const main = async () => {
+// Helper function to combine market and social data
+export const analyzeMarketAndSocial = async (): Promise<ServiceData> => {
     try {
-        const decisionMaker = new DecisionMakerService(cookie(['bitcoin', 'solana']));
-        const analysis = await decisionMaker.analyze();
-        console.log("Analysis:", analysis);
+        const dexService = new DexScreenerService({ maxTokens: 3 });
+        const { tickers, marketData } = await dexService.getTrendingTokens();
+        
+        try {
+            const cookieService = new CookieService({});
+            const tweetData = await cookieService.searchMultipleQueries(tickers, 3);
+
+            return {
+                data: [
+                    "=== Market Data ===",
+                    ...marketData,
+                    "\n=== Social Sentiment ===",
+                    ...tweetData
+                ],
+                source: 'market_and_social_data'
+            };
+        } catch (cookieError) {
+            console.error("Error fetching tweets:", cookieError);
+            return {
+                data: [
+                    "=== Market Data ===",
+                    ...marketData
+                ],
+                source: 'market_data_only'
+            };
+        }
     } catch (error) {
-        console.error("Error:", error);
+        console.error("Error fetching market data:", error);
+        throw error;
     }
 };
 
+// Test function to check tweets
+const testTweets = async () => {
+    try {
+        const dexService = new DexScreenerService({ maxTokens: 3 });
+        const { tickers, marketData } = await dexService.getTrendingTokens();
+        
+        console.log("Tickers found:", tickers);
+        console.log("\nMarket Data:", marketData);
+        
+        try {
+            const cookieService = new CookieService({});
+            console.log("\nFetching tweets for:", tickers);
+            
+            const tweetData = await cookieService.searchMultipleQueries(tickers, 5);
+            console.log("\nTweets found:", tweetData);
+        } catch (cookieError) {
+            console.error("\nError fetching tweets:", cookieError);
+        }
+    } catch (error) {
+        console.error("Error in test:", error);
+    }
+};
+
+// Test function to check LLM analysis
+const testLLM = async () => {
+    try {
+        const decisionMaker = new DecisionMakerService(analyzeMarketAndSocial());
+        const analysis = await decisionMaker.analyze();
+        console.log("\nLLM Analysis:", analysis);
+    } catch (error) {
+        console.error("Error in LLM test:", error);
+    }
+};
+
+// Run tests if this file is run directly
 if (require.main === module) {
-    main();
+    // Test tweets first
+    testTweets()
+        .then(() => {
+            console.log("\n=== Tweet test completed, starting LLM test ===\n");
+            return testLLM();
+        })
+        .catch(console.error);
 }
 
 export default DecisionMakerService;
+
