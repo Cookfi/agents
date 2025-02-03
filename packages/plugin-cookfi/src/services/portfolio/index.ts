@@ -1,86 +1,114 @@
-import { elizaLogger } from "@elizaos/core";
-import type { TokenResult } from "../../types/token";
+import { elizaLogger, type IAgentRuntime } from "@elizaos/core";
+import Moralis from "moralis";
+import { PORTFOLIO_CONFIG } from "./config";
 import type {
-    BirdeyePortfolioResponse
+    PortfolioServiceConfig,
+    PortfolioResponse,
+    TokenMetadata,
+    TokenBalance,
 } from "./types";
 
-const BIRDEYE_ENDPOINT = "https://public-api.birdeye.so/v1/wallet/token_list";
-
 export class PortfolioService {
-    private walletAddress: string;
+    private address: string;
+    private runtime: IAgentRuntime;
+    private lastFetchTime: number = 0;
+    private cachedPortfolio: PortfolioResponse | null = null;
 
-    constructor() {
-        this.walletAddress = process.env.WALLET_PUBLIC_KEY || "";
-        if (!this.walletAddress) {
-            elizaLogger.warn("WALLET_PUBLIC_KEY is not set in environment");
+    constructor(config: PortfolioServiceConfig, runtime: IAgentRuntime) {
+        this.address = config.address;
+        this.runtime = runtime;
+    }
+
+    private async initializeMoralis() {
+        if (!Moralis.Core.isStarted) {
+            const apiKey = this.runtime.getSetting("MORALIS_API_KEY");
+            if (!apiKey) {
+                throw new Error(
+                    "MORALIS_API_KEY not found in environment variables"
+                );
+            }
+            await Moralis.start({ apiKey });
+        }
+    }
+
+    private shouldRefreshCache(): boolean {
+        return (
+            !this.cachedPortfolio ||
+            Date.now() - this.lastFetchTime > PORTFOLIO_CONFIG.CACHE_TTL
+        );
+    }
+
+    private transformMoralisResponse(response: any): PortfolioResponse {
+        return {
+            nativeBalance: response.nativeBalance,
+            tokens: response.tokens.map(
+                (token: any): TokenBalance => ({
+                    associatedTokenAddress: token.associatedTokenAddress,
+                    mint: token.mint,
+                    amountRaw: token.amountRaw,
+                    amount: token.amount,
+                    decimals: token.decimals,
+                    name: token.name,
+                    symbol: token.symbol,
+                    logo: token.logo || null,
+                })
+            ),
+        };
+    }
+
+    /**
+     * Get portfolio balance including SOL and all tokens
+     * @returns Promise containing portfolio balance information
+     */
+    async getPortfolio(): Promise<PortfolioResponse> {
+        try {
+            if (!this.shouldRefreshCache()) {
+                return this.cachedPortfolio!;
+            }
+
+            await this.initializeMoralis();
+
+            const response = await Moralis.SolApi.account.getPortfolio({
+                network: PORTFOLIO_CONFIG.NETWORK,
+                address: this.address,
+            });
+
+            this.cachedPortfolio = this.transformMoralisResponse(response.raw);
+            this.lastFetchTime = Date.now();
+
+            return this.cachedPortfolio;
+        } catch (error) {
+            elizaLogger.error("Failed to fetch portfolio:", error);
+            throw error;
         }
     }
 
     /**
-     * Fetch portfolio data from Birdeye API
+     * Get metadata for a specific token
+     * @param mint Token mint address
+     * @returns Promise containing token metadata
      */
-    private async fetchPortfolioData(): Promise<BirdeyePortfolioResponse | null> {
-        if (!this.walletAddress || !process.env.COOKFI_BIRDEYE_API_KEY) {
-            elizaLogger.warn(
-                "Missing required environment variables for portfolio service"
-            );
-            return null;
-        }
-
+    async getTokenMetadata(mint: string): Promise<TokenMetadata | null> {
         try {
-            const response = await fetch(
-                `${BIRDEYE_ENDPOINT}?wallet=${this.walletAddress}`,
-                {
-                    headers: {
-                        "X-API-KEY": process.env.COOKFI_BIRDEYE_API_KEY,
-                        Accept: "application/json"
-                    }
-                }
-            );
+            const portfolio = await this.getPortfolio();
+            const token = portfolio.tokens.find((t) => t.mint === mint);
 
-            if (!response.ok) {
-                elizaLogger.warn(`Birdeye API error: ${response.status}`);
+            if (!token) {
                 return null;
             }
 
-            const data = await response.json();
-            return data as BirdeyePortfolioResponse;
+            return {
+                mint: token.mint,
+                name: token.name,
+                symbol: token.symbol,
+                logo: token.logo,
+                decimals: token.decimals,
+            };
         } catch (error) {
-            elizaLogger.warn("Failed to fetch portfolio data:", error);
-            return null;
-        }
-    }
-
-    /**
-     * Get portfolio tokens with balance information
-     */
-    async getTokens(): Promise<TokenResult[]> {
-        const data = await this.fetchPortfolioData();
-        
-        if (!data?.data?.items) {
-            return [];
-        }
-
-        try {
-            const tokens = data.data.items
-                .filter(item => item.symbol !== "SOL") // Filter out SOL token
-                .map(item => ({
-                    symbol: item.symbol,
-                    name: item.name,
-                    address: item.address,
-                    chainId: "solana",
-                    balance: {
-                        amount: item.amount,
-                        usdValue: item.value
-                    }
-                }));
-
-            return tokens;
-        } catch (error) {
-            elizaLogger.warn("Failed to transform portfolio data:", error);
-            return [];
+            elizaLogger.error("Failed to get token metadata:", error);
+            throw error;
         }
     }
 }
 
-export default PortfolioService; 
+export default PortfolioService;
