@@ -13,7 +13,7 @@ import {
 } from "@elizaos/core";
 import { z } from "zod";
 import { CookieService } from "../services/cookie";
-import type { CookieTweet } from "../services/cookie/types";
+import { EnhancedTweet } from "../services/cookie/types";
 
 const topicExtractionTemplate = `Look at the user's message and identify the main cryptocurrency or token they want to analyze.
 Extract ONLY the token name/symbol without any prefixes (like $ or #).
@@ -30,19 +30,13 @@ Last message:
 {{text}}`;
 
 const analyzeTemplate = `Analyze these tweets about cryptocurrency and provide a summary of the key insights.
-Focus on sentiment, price predictions, and technical analysis mentions.
+Format the response as 3 points: 
+- First point: One sentence with the 2 most important news about the project.
+- Second point: One sentence with the overall sentiment and engagement levels.
+- Third point: If tweets mentions a token, One sentence with analyse of the price predictions, chart information, technical analysis mentions.
 
 Tweets to analyze:
-{{tweets}}
-
-Return a concise analysis with the most important points. Format your response as:
-1. Most significant insight
-2. Second most significant insight
-3. Third most significant insight
-4. Fourth most significant insight
-5. Fifth most significant insight
-
-Each point should be 1-2 sentences maximum.`;
+{{tweets}}`;
 
 interface TopicFields {
     topic: string;
@@ -108,41 +102,32 @@ export const analyzeTweetsAction: Action = {
                 if (callback) {
                     callback({
                         text: "I couldn't determine which cryptocurrency you want me to analyze. Please specify a token name or symbol.",
-                        content: { success: false, error: "No topic detected" }
                     });
                 }
                 return false;
             }
 
-            const cookieService = new CookieService({
-                apiKey: "", // API key is loaded from env in service
-                baseUrl: "" // Base URL is loaded from config in service
-            });
+            const cookieService = new CookieService();
 
             // Search for tweets using the extracted topic
             const searchResults = await cookieService.searchTweets({
                 query: topicFields.topic,
-                max_results: 10,
-                sort_order: "relevancy"
+                max_results: 10
             });
 
-            if (!searchResults.data || searchResults.data.length === 0) {
+            if (!searchResults || searchResults.length === 0) {
                 if (callback) {
                     callback({
                         text: `No tweets found for ${topicFields.topic}`,
-                        content: { success: false, error: "No tweets found" }
                     });
                 }
                 return false;
             }
 
             // Format tweets for analysis
-            const formattedTweets = searchResults.data
-                .map((tweet: CookieTweet) => 
-                    `Tweet: ${tweet.text}\n` +
-                    `Metrics: ${tweet.public_metrics.like_count} likes, ` +
-                    `${tweet.public_metrics.retweet_count} retweets\n`
-                )
+            const formattedTweets = searchResults
+                .map((tweet: EnhancedTweet) => 
+                    `Tweet: ${tweet.formattedText} (Likes: ${tweet.likesCount}, Retweets: ${tweet.retweetsCount}, Replies: ${tweet.repliesCount}, Quotes: ${tweet.quotesCount}, Smart Engagement: ${tweet.smartEngagementPoints}, Score: ${tweet.score})`)
                 .join("\n---\n");
 
             // Generate analysis
@@ -164,24 +149,19 @@ export const analyzeTweetsAction: Action = {
                 throw new Error("Failed to generate analysis");
             }
 
+            // Select and format the top tweets by engagement
+            const topTweets = searchResults
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 3);
+
+            const formattedResponse = `<b>My analysis:</b>\n\n${analysis}\n\n<b>Top Tweets:</b>\n\n${topTweets.map((tweet, index) => (
+                `${index + 1}. <a href="https://twitter.com/${tweet.authorUsername}">@${tweet.authorUsername}</a> (${tweet.formattedDate}) - ${tweet.formattedEngagement}\n${tweet.formattedText}\n`
+            )).join('\n')}`;
+
             if (callback) {
                 callback({
-                    text: analysis,
-                    content: {
-                        success: true,
-                        data: {
-                            topic: topicFields.topic,
-                            tweetCount: searchResults.data.length,
-                            analysis,
-                            tweets: searchResults.data
-                        },
-                        metadata: {
-                            timestamp: new Date().toISOString(),
-                            source: "cookfi-plugin",
-                            action: "analyzeTweets",
-                            actionId
-                        }
-                    }
+                    text: formattedResponse,
+                    parseMode: "HTML"
                 });
             }
 
@@ -191,14 +171,7 @@ export const analyzeTweetsAction: Action = {
             
             if (callback) {
                 callback({
-                    text: `Failed to analyze tweets: ${error.message}`,
-                    content: {
-                        success: false,
-                        error: {
-                            message: error.message,
-                            details: error instanceof Error ? error.stack : undefined
-                        }
-                    }
+                    text: `Failed to analyze tweets: ${error.message}`
                 });
             }
             

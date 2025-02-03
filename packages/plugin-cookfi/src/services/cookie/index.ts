@@ -1,22 +1,22 @@
-import * as dotenv from 'dotenv';
 import axios from 'axios';
+import * as dotenv from 'dotenv';
 dotenv.config();
 
 import { COOKIE_CONFIG } from './config';
 import { formatCookieData } from './formatters';
-import type { CookieServiceConfig, SearchTweetsParams, CookieAPIResponse } from './types';
+import type { CookieAPIResponse, EnhancedTweet, SearchTweetsParams } from './types';
 
 export class CookieService {
     private apiKey: string;
     private baseUrl: string;
     private lastRequestTime: number = 0;
 
-    constructor(config: CookieServiceConfig) {
-        if (!process.env.COOKIE_API_KEY) {
-            throw new Error('COOKIE_API_KEY is not set');
+    constructor() {
+        if (!process.env.COOKFI_COOKIE_API_KEY) {
+            throw new Error('COOKFI_COOKIE_API_KEY is not set');
         }
-        this.apiKey = process.env.COOKIE_API_KEY;
-        this.baseUrl = config.baseUrl || COOKIE_CONFIG.BASE_URL;
+        this.apiKey = process.env.COOKFI_COOKIE_API_KEY;
+        this.baseUrl = COOKIE_CONFIG.BASE_URL;
     }
 
     private async checkRateLimit(): Promise<void> {
@@ -28,7 +28,7 @@ export class CookieService {
         this.lastRequestTime = Date.now();
     }
 
-    async searchTweets(params: SearchTweetsParams): Promise<string[]> {
+    async searchTweets(params: SearchTweetsParams): Promise<EnhancedTweet[]> {
         await this.checkRateLimit();
         const from = new Date();
         from.setDate(from.getDate() - 3);
@@ -52,8 +52,7 @@ export class CookieService {
         return formatCookieData(response.data);
     }
 
-    private async processBatch(queries: string[], maxResults: number): Promise<string[]> {
-        // Process up to N queries simultaneously while respecting rate limits
+    private async processBatch(queries: string[], maxResults: number): Promise<EnhancedTweet[]> {
         const batchPromises = queries.map(query => 
             this.searchTweets({ query, max_results: maxResults })
         );
@@ -61,14 +60,14 @@ export class CookieService {
         return results.flat();
     }
 
-    async searchMultipleQueries(queries: string[], maxResults: number = 10): Promise<string[]> {
+    async searchMultipleQueries(queries: string[], maxResults: number = 10): Promise<EnhancedTweet[]> {
         // Calculate actual requests we can make per minute considering weight
         const WEIGHT_PER_REQUEST = 12;
         const actualRequestsPerMinute = Math.floor(COOKIE_CONFIG.RATE_LIMIT.MAX_REQUESTS_PER_MINUTE / WEIGHT_PER_REQUEST); // = 5
         
         // Use a smaller batch size to be safe (3 requests per batch)
         const batchSize = Math.min(3, actualRequestsPerMinute);
-        const allTweets: string[] = [];
+        const allTweets: EnhancedTweet[] = [];
         
         // Process queries in smaller batches
         for (let i = 0; i < queries.length; i += batchSize) {
@@ -87,13 +86,5 @@ export class CookieService {
         return allTweets;
     }
 }
-
-// // Simple test
-// if (require.main === module) {
-//     const cookieService = new CookieService({});
-//     cookieService.searchMultipleQueries(['bitcoin', 'ethereum' , 'solana', 'elon musk'], 20)
-//         .then(tweets => console.log(tweets))
-//         .catch(console.error);
-// }
 
 export default CookieService;
