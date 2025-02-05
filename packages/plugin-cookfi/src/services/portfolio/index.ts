@@ -7,9 +7,6 @@ import type {
     TokenBalance,
 } from "./types";
 import { TokenResult } from "../../types/token";
-import * as dotenv from "dotenv";
-
-dotenv.config();
 
 export class PortfolioService {
     private address: string;
@@ -102,7 +99,7 @@ export class PortfolioService {
                 address: token.mint,
                 chainId: "solana",
                 balance: {
-                    amount: parseFloat(token.amount),
+                    amount: parseFloat(token.amountRaw),
                     usdValue: 0, // Note: Moralis doesn't provide USD value directly
                 },
             }));
