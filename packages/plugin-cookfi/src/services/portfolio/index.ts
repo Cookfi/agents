@@ -99,7 +99,7 @@ export class PortfolioService {
                 address: token.mint,
                 chainId: "solana",
                 balance: {
-                    amount: parseFloat(token.amountRaw),
+                    amount: parseFloat(token.amount),
                     usdValue: 0, // Note: Moralis doesn't provide USD value directly
                 },
             }));
