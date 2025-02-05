@@ -1,71 +1,37 @@
-export enum TimePeriod {
-    M5 = "m5", // 5 minutes
-    H1 = "h1", // 1 hour
-    H6 = "h6", // 6 hours
-    H24 = "h24" // 24 hours
-}
-
-export enum SocialType {
-    TWITTER = "twitter",
-    TELEGRAM = "telegram",
-    DISCORD = "discord",
-    MEDIUM = "medium",
-    GITHUB = "github"
-}
-
-export enum WebsiteLabel {
-    WEBSITE = "Website",
-    DOCS = "Docs",
-    WHITEPAPER = "Whitepaper",
-    AUDIT = "Audit"
-}
-
-interface TokenInfo {
-    address: string;
-    name: string;
-    symbol: string;
-}
-
-interface TxnStats {
-    buys: number;
-    sells: number;
-}
-
-interface Website {
-    label: WebsiteLabel;
-    url: string;
-}
-
-interface Social {
-    type: SocialType;
-    url: string;
-}
-
-interface TokenInfo {
-    imageUrl: string;
-    header: string;
-    openGraph?: string;
-    websites: Website[];
-    socials: Social[];
-}
-
 export interface TokenPair {
     chainId: string;
     dexId: string;
     url: string;
     pairAddress: string;
-    baseToken: TokenInfo;
-    quoteToken: TokenInfo;
+    baseToken: {
+        address: string;
+        name: string;
+        symbol: string;
+    };
+    quoteToken: {
+        address: string;
+        name: string;
+        symbol: string;
+    };
     priceNative: string;
     priceUsd: string;
     txns: {
-        [period in TimePeriod]?: TxnStats;
+        m5: { buys: number; sells: number };
+        h1: { buys: number; sells: number };
+        h6: { buys: number; sells: number };
+        h24: { buys: number; sells: number };
     };
     volume: {
-        [period in TimePeriod]?: number;
+        h24: number;
+        h6: number;
+        h1: number;
+        m5: number;
     };
     priceChange: {
-        [period in TimePeriod]?: number;
+        m5?: number;
+        h1?: number;
+        h6?: number;
+        h24?: number;
     };
     liquidity: {
         usd: number;
@@ -74,39 +40,59 @@ export interface TokenPair {
     };
     fdv: number;
     marketCap: number;
-    pairCreatedAt: number;
-    info: TokenInfo;
-    boosts: {
-        active: number;
+    info?: {
+        imageUrl?: string;
+        header?: string;
+        openGraph?: string;
+        websites?: Array<{
+            label: string;
+            url: string;
+        }>;
+        socials?: Array<{
+            type: string;
+            url: string;
+        }>;
     };
-}
-
-interface TokenLink {
-    type: string;
-    label: string;
-    url: string;
 }
 
 export interface BoostedToken {
     url: string;
     chainId: string;
     tokenAddress: string;
-    amount: number;
-    totalAmount: number;
-    icon: string;
-    header: string;
+    icon?: string;
+    header?: string;
+    openGraph?: string;
     description?: string;
-    links: TokenLink[];
+    links?: Array<{
+        type?: string;
+        label?: string;
+        url: string;
+    }>;
+    totalAmount: number;
 }
 
-export type DexScreenerAPIResponse = TokenPair[];
+export interface DexScreenerAPIResponse {
+    pairs: TokenPair[];
+    success: boolean;
+    error: string | null;
+}
+
+export interface FormattedToken {
+    symbol: string;
+    name: string;
+    price: number;
+    volume24h: number;
+    liquidity: number;
+    priceChange24h: number;
+    marketData: string;  // Formatted string for decision maker
+}
 
 export interface SearchTokensParams {
-    chainId?: string;
-    maxResults?: number;
+    chain?: string;
+    limit?: number;
 }
 
-export interface TokenDataResponse {
-    tickers: string[];
-    marketData: string[];
-}
+export interface DexScreenerServiceConfig {
+    baseUrl?: string;
+    maxTokens?: number;
+} 

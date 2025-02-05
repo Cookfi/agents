@@ -30,7 +30,7 @@ export function formatCookieData(response: CookieAPIResponse): EnhancedTweet[] {
     if (!response.ok || !Array.isArray(response.ok)) {
         return [];
     }
-    console.log("CookieResponse:", response);
+
     return response.ok.map(tweet => ({
         ...tweet,
         score: calculateTweetScore(tweet),
