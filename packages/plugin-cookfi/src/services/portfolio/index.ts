@@ -4,24 +4,25 @@ import { PORTFOLIO_CONFIG } from "./config";
 import type {
     PortfolioServiceConfig,
     PortfolioResponse,
-    TokenMetadata,
     TokenBalance,
 } from "./types";
+import { TokenResult } from "../../types/token";
+import * as dotenv from "dotenv";
+
+dotenv.config();
 
 export class PortfolioService {
     private address: string;
-    private runtime: IAgentRuntime;
     private lastFetchTime: number = 0;
     private cachedPortfolio: PortfolioResponse | null = null;
 
-    constructor(config: PortfolioServiceConfig, runtime: IAgentRuntime) {
+    constructor(config: PortfolioServiceConfig) {
         this.address = config.address;
-        this.runtime = runtime;
     }
 
     private async initializeMoralis() {
         if (!Moralis.Core.isStarted) {
-            const apiKey = this.runtime.getSetting("MORALIS_API_KEY");
+            const apiKey = process.env.MORALIS_API_KEY;
             if (!apiKey) {
                 throw new Error(
                     "MORALIS_API_KEY not found in environment variables"
@@ -84,29 +85,32 @@ export class PortfolioService {
     }
 
     /**
-     * Get metadata for a specific token
-     * @param mint Token mint address
-     * @returns Promise containing token metadata
+     * Get portfolio tokens with balance information
+     * @returns Promise containing array of token information
      */
-    async getTokenMetadata(mint: string): Promise<TokenMetadata | null> {
+    async getTokens(): Promise<TokenResult[]> {
         try {
             const portfolio = await this.getPortfolio();
-            const token = portfolio.tokens.find((t) => t.mint === mint);
 
-            if (!token) {
-                return null;
+            if (!portfolio?.tokens) {
+                return [];
             }
 
-            return {
-                mint: token.mint,
-                name: token.name,
+            const tokens = portfolio.tokens.map((token) => ({
                 symbol: token.symbol,
-                logo: token.logo,
-                decimals: token.decimals,
-            };
+                name: token.name,
+                address: token.mint,
+                chainId: "solana",
+                balance: {
+                    amount: parseFloat(token.amount),
+                    usdValue: 0, // Note: Moralis doesn't provide USD value directly
+                },
+            }));
+
+            return tokens;
         } catch (error) {
-            elizaLogger.error("Failed to get token metadata:", error);
-            throw error;
+            elizaLogger.warn("Failed to transform portfolio data:", error);
+            return [];
         }
     }
 }
