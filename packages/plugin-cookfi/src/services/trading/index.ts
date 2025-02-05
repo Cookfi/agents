@@ -19,14 +19,22 @@ export class TradingService {
     private agent: SolanaAgentKit;
 
     constructor(config: TradingServiceConfig) {
-        this.connection = new Connection(
-            config.rpcUrl || TRADING_CONFIG.DEFAULT_RPC_URL
-        );
+        const privateKeyString = process.env.COOKFI_SOLANA_PRIVATE_KEY;
+        if (!privateKeyString) {
+            throw new Error("COOKFI_SOLANA_PRIVATE_KEY is required");
+        }
 
-        // Initialize SolanaAgentKit
+        const rpcUrl = process.env.COOKFI_SOLANA_RPC_URL;
+        if (!rpcUrl) {
+            throw new Error("COOKFI_SOLANA_RPC_URL is required");
+        }
+
+        this.connection = new Connection(rpcUrl);
+
+        // Initialize SolanaAgentKit with decoded private key
         this.agent = new SolanaAgentKit(
-            process.env.SOLANA_PRIVATE_KEY!,
-            config.rpcUrl || TRADING_CONFIG.DEFAULT_RPC_URL,
+            privateKeyString,
+            rpcUrl,
             { OPENAI_API_KEY: process.env.OPENAI_API_KEY! }
         );
     }

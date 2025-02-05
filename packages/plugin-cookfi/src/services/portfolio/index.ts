@@ -10,9 +10,9 @@ export class PortfolioService {
     private walletAddress: string;
 
     constructor() {
-        this.walletAddress = process.env.WALLET_PUBLIC_KEY || "";
+        this.walletAddress = process.env.COOKFI_SOLANA_PUBLIC_KEY || "";
         if (!this.walletAddress) {
-            elizaLogger.warn("WALLET_PUBLIC_KEY is not set in environment");
+            elizaLogger.warn("COOKFI_SOLANA_PUBLIC_KEY is not set in environment");
         }
     }
 

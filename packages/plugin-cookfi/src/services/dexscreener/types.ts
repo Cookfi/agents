@@ -5,6 +5,21 @@ export enum TimePeriod {
     H24 = "h24" // 24 hours
 }
 
+export enum SocialType {
+    TWITTER = "twitter",
+    TELEGRAM = "telegram",
+    DISCORD = "discord",
+    MEDIUM = "medium",
+    GITHUB = "github"
+}
+
+export enum WebsiteLabel {
+    WEBSITE = "Website",
+    DOCS = "Docs",
+    WHITEPAPER = "Whitepaper",
+    AUDIT = "Audit"
+}
+
 interface TokenInfo {
     address: string;
     name: string;
@@ -17,16 +32,19 @@ interface TxnStats {
 }
 
 interface Website {
+    label: WebsiteLabel;
     url: string;
 }
 
 interface Social {
-    platform: string;
-    handle: string;
+    type: SocialType;
+    url: string;
 }
 
-interface PairInfo {
+interface TokenInfo {
     imageUrl: string;
+    header: string;
+    openGraph?: string;
     websites: Website[];
     socials: Social[];
 }
@@ -36,7 +54,6 @@ export interface TokenPair {
     dexId: string;
     url: string;
     pairAddress: string;
-    labels: string[];
     baseToken: TokenInfo;
     quoteToken: TokenInfo;
     priceNative: string;
@@ -58,7 +75,7 @@ export interface TokenPair {
     fdv: number;
     marketCap: number;
     pairCreatedAt: number;
-    info: PairInfo;
+    info: TokenInfo;
     boosts: {
         active: number;
     };
@@ -82,10 +99,7 @@ export interface BoostedToken {
     links: TokenLink[];
 }
 
-export interface DexScreenerAPIResponse {
-    schemaVersion: string;
-    pairs: TokenPair[];
-}
+export type DexScreenerAPIResponse = TokenPair[];
 
 export interface SearchTokensParams {
     chainId?: string;
