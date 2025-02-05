@@ -1,34 +1,35 @@
-import * as dotenv from 'dotenv';
 import axios from 'axios';
+import * as dotenv from 'dotenv';
 dotenv.config();
 
 import { COOKIE_CONFIG } from './config';
 import { formatCookieData } from './formatters';
-import type { CookieServiceConfig, SearchTweetsParams, CookieAPIResponse } from './types';
+import type { CookieAPIResponse, EnhancedTweet, SearchTweetsParams } from './types';
 
 export class CookieService {
     private apiKey: string;
     private baseUrl: string;
     private lastRequestTime: number = 0;
 
-    constructor(config: CookieServiceConfig) {
-        if (!process.env.COOKIE_API_KEY) {
-            throw new Error('COOKIE_API_KEY is not set');
+    constructor() {
+        if (!process.env.COOKFI_COOKIE_API_KEY) {
+            throw new Error('COOKFI_COOKIE_API_KEY is not set');
         }
-        this.apiKey = process.env.COOKIE_API_KEY;
-        this.baseUrl = config.baseUrl || COOKIE_CONFIG.BASE_URL;
+        this.apiKey = process.env.COOKFI_COOKIE_API_KEY;
+        this.baseUrl = COOKIE_CONFIG.BASE_URL;
     }
 
     private async checkRateLimit(): Promise<void> {
         const now = Date.now();
         const timeSinceLastRequest = now - this.lastRequestTime;
-        if (timeSinceLastRequest < (60000 / COOKIE_CONFIG.RATE_LIMIT.MAX_REQUESTS_PER_MINUTE)) {
-            await new Promise(resolve => setTimeout(resolve, (60000 / COOKIE_CONFIG.RATE_LIMIT.MAX_REQUESTS_PER_MINUTE) - timeSinceLastRequest));
+        const minDelay = 60000 / (COOKIE_CONFIG.RATE_LIMIT.MAX_REQUESTS_PER_MINUTE / 2); // More conservative rate limit
+        if (timeSinceLastRequest < minDelay) {
+            await new Promise(resolve => setTimeout(resolve, minDelay - timeSinceLastRequest));
         }
         this.lastRequestTime = Date.now();
     }
 
-    async searchTweets(params: SearchTweetsParams): Promise<string[]> {
+    async searchTweets(params: SearchTweetsParams): Promise<EnhancedTweet[]> {
         await this.checkRateLimit();
         const from = new Date();
         from.setDate(from.getDate() - 3);
@@ -52,8 +53,7 @@ export class CookieService {
         return formatCookieData(response.data);
     }
 
-    private async processBatch(queries: string[], maxResults: number): Promise<string[]> {
-        // Process up to N queries simultaneously while respecting rate limits
+    private async processBatch(queries: string[], maxResults: number): Promise<EnhancedTweet[]> {
         const batchPromises = queries.map(query => 
             this.searchTweets({ query, max_results: maxResults })
         );
@@ -61,39 +61,63 @@ export class CookieService {
         return results.flat();
     }
 
-    async searchMultipleQueries(queries: string[], maxResults: number = 10): Promise<string[]> {
-        // Calculate actual requests we can make per minute considering weight
-        const WEIGHT_PER_REQUEST = 12;
-        const actualRequestsPerMinute = Math.floor(COOKIE_CONFIG.RATE_LIMIT.MAX_REQUESTS_PER_MINUTE / WEIGHT_PER_REQUEST); // = 5
+    async searchMultipleQueries(queries: string[], maxResults: number): Promise<EnhancedTweet[]> {
+        const batchSize = 1; // Process 1 query at a time
+        const results: EnhancedTweet[] = [];
         
-        // Use a smaller batch size to be safe (3 requests per batch)
-        const batchSize = Math.min(3, actualRequestsPerMinute);
-        const allTweets: string[] = [];
-        
-        // Process queries in smaller batches
         for (let i = 0; i < queries.length; i += batchSize) {
-            const batch = queries.slice(i, i + batchSize);
-            const batchResults = await this.processBatch(batch, maxResults);
-            allTweets.push(...batchResults);
-            
-            // Add a longer delay between batches to respect the weighted rate limit
-            if (i + batchSize < queries.length) {
-                // Wait for 20 seconds between batches to be safe
-                // (60 seconds / 3 batches = 20 seconds)
-                await new Promise(resolve => setTimeout(resolve, 20000));
+            try {
+                const batch = queries.slice(i, i + batchSize);
+                const batchResults = await this.processBatch(batch, maxResults);
+                results.push(...batchResults);
+                
+                // Longer delay between batches (5 seconds)
+                await new Promise(resolve => setTimeout(resolve, 5000));
+            } catch (error) {
+                if (error.response?.status === 429) {
+                    // If rate limited, wait 30 seconds and retry
+                    await new Promise(resolve => setTimeout(resolve, 30000));
+                    i -= batchSize; // Retry this batch
+                    continue;
+                }
+                throw error;
             }
         }
         
-        return allTweets;
+        return results;
     }
 }
 
-// // Simple test
-// if (require.main === module) {
-//     const cookieService = new CookieService({});
-//     cookieService.searchMultipleQueries(['bitcoin', 'ethereum' , 'solana', 'elon musk'], 20)
-//         .then(tweets => console.log(tweets))
-//         .catch(console.error);
-// }
+// // Test function
+async function testCookieService() {
+    const service = new CookieService();
+    try {
+        console.log('Testing Cookie Service...');
+        
+        const allTweets = await service.searchMultipleQueries(
+            [ "$BBB"
+              ],  // Array of queries
+            5  // max_results per query
+        );
+        
+        console.log('=== Combined Tweets from all queries ===');
+        console.log(`Total tweets found: ${allTweets.length}`);
+        allTweets.forEach((tweet, index) => {
+            console.log(`\n[Tweet ${index + 1}]`);
+            console.log(`Text: ${tweet.formattedText}`);
+            console.log(`Score: ${tweet.score}`);
+            console.log(`Engagement: ${tweet.formattedEngagement}`);
+            console.log('------------------------');
+        });
+        
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+// Run test if this file is executed directly
+if (require.main === module) {
+    testCookieService();
+}
 
 export default CookieService;

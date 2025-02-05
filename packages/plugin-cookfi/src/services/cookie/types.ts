@@ -14,6 +14,13 @@ export interface Tweet {
     matchingScore: number;
 }
 
+export interface EnhancedTweet extends Tweet {
+    score: number;
+    formattedDate: string;
+    formattedEngagement: string;
+    formattedText: string;
+}
+
 export interface CookieAPIResponse {
     ok: Tweet[];
     success: boolean;
@@ -38,8 +45,4 @@ export interface FormattedTweet {
 export interface SearchTweetsParams {
     query: string;
     max_results?: number;
-}
-
-export interface CookieServiceConfig {
-    baseUrl?: string;
 }
