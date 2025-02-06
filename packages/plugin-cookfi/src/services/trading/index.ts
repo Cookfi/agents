@@ -1,5 +1,5 @@
 import { elizaLogger } from "@elizaos/core";
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey, SendTransactionError } from "@solana/web3.js";
 import { SolanaAgentKit } from "solana-agent-kit";
 import { TRADING_CONFIG } from "./config";
 import type {
@@ -13,6 +13,8 @@ import type {
     TransferParams,
     TransferResponse,
 } from "./types";
+
+const SOL_ADDRESS = "So11111111111111111111111111111111111111112";
 
 export class TradingService {
     private connection: Connection;
@@ -46,30 +48,61 @@ export class TradingService {
      */
     async swap(params: SwapParams): Promise<SwapResponse> {
         try {
-            const outputMint = new PublicKey(params.toToken);
-            const inputMint = params.fromToken
-                ? new PublicKey(params.fromToken)
-                : undefined;
-            const slippageBps = params.slippage
-                ? params.slippage * 100
-                : undefined; // Convert percentage to basis points
-
-            const signature = await this.agent.trade(
-                outputMint,
-                params.amount,
-                inputMint,
-                slippageBps
+            // Handle SOL address consistently
+            const outputMint = new PublicKey(
+                params.toToken === "SOL" ? SOL_ADDRESS : params.toToken
             );
+            const inputMint = params.fromToken ? new PublicKey(
+                params.fromToken === "SOL" ? SOL_ADDRESS : params.fromToken
+            ) : undefined;
 
-            // For simplicity, we're returning estimated amounts
-            // In a production environment, you'd want to fetch the actual amounts from the transaction
-            return {
-                signature,
-                fromAmount: params.amount,
-                toAmount: params.amount, // This should be calculated based on actual exchange rate
-            };
+            // Convert slippage to basis points (1% = 100 basis points)
+            const slippageBps = params.slippage ? Math.floor(params.slippage * 100) : 100;
+
+            elizaLogger.log("Executing swap:", {
+                outputMint: outputMint.toString(),
+                inputMint: inputMint?.toString(),
+                inputAmount: params.amount,
+                slippageBps
+            });
+
+            try {
+                const signature = await this.agent.trade(
+                    outputMint,
+                    params.amount,
+                    inputMint,
+                    slippageBps
+                );
+
+                elizaLogger.log("Swap successful:", signature);
+
+                return {
+                    signature,
+                    fromAmount: params.amount,
+                    toAmount: params.amount
+                };
+            } catch (error) {
+                if (error instanceof SendTransactionError) {
+                    const logs = error.logs;
+                    elizaLogger.error("Swap transaction failed. Full logs:", logs);
+                    
+                    // Check for specific error conditions
+                    if (logs?.some(log => log.includes("insufficient funds"))) {
+                        throw new Error("Insufficient funds for swap");
+                    }
+                    if (logs?.some(log => log.includes("slippage tolerance exceeded"))) {
+                        throw new Error("Price moved too much, try increasing slippage");
+                    }
+                }
+                throw error;
+            }
         } catch (error) {
-            elizaLogger.error("Swap failed:", error);
+            elizaLogger.error("Swap failed:", {
+                error,
+                message: error instanceof Error ? error.message : "Unknown error",
+                token: params.toToken,
+                amount: params.amount
+            });
             throw error;
         }
     }
