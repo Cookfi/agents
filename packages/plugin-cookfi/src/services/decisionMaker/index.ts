@@ -71,7 +71,7 @@ Return the response as a JSON object with the following structure:
 Analysis Data:
 ${JSON.stringify({
     token,
-    marketAnalysis: analysis.marketAnalysis,
+    marketAnalysis: analysis.marketAnalysis[0],
     socialAnalysis: analysis.socialAnalysis
 }, null, 2)}`;
 

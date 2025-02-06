@@ -1,12 +1,12 @@
-import { elizaLogger, type IAgentRuntime } from "@elizaos/core";
+import { elizaLogger } from "@elizaos/core";
 import Moralis from "moralis";
+import { TokenResult } from "../../types/token";
 import { PORTFOLIO_CONFIG } from "./config";
 import type {
-    PortfolioServiceConfig,
     PortfolioResponse,
+    PortfolioServiceConfig,
     TokenBalance,
 } from "./types";
-import { TokenResult } from "../../types/token";
 
 export class PortfolioService {
     private address: string;

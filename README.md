@@ -14,9 +14,17 @@ A degen cooking up alpha and gains.
 ## Install 
 
 - Setup env variables
-  - OPENAI_API_KEY
-  - TELEGRAM_BOT_TOKEN
+```
+  TELEGRAM_BOT_TOKEN=
+  OPENAI_API_KEY=
+  COOKFI_COOKIE_API_KEY=
+  COOKFI_BIRDEYE_API_KEY=
+  COOKFI_BIRDEYE_DRY_RUN=true
+  COOKFI_SOLANA_PRIVATE_KEY=
+  COOKFI_SOLANA_PUBLIC_KEY=
+  COOKFI_SOLANA_RPC_URL=https://api.devnet.solana.com
+```
 - Then run
   - `pnpm install`
   - `pnpm build`
-  - `pnpm start:debug --character="../characters/cookfi.character.json"`
+  - `pnpm start:debug --character="../characters/cookfi.character.json" | tee output.log`

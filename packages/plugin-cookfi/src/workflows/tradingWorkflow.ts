@@ -1,11 +1,10 @@
 import { elizaLogger, type IAgentRuntime } from "@elizaos/core";
-import { DecisionMakerService, TradeDecision } from "../services/decisionMaker";
+import { DecisionMakerService } from "../services/decisionMaker";
 import { DexScreenerService } from "../services/dexscreener";
-import { TokenPair } from "../services/dexscreener/types";
+import { ExecutionService } from "../services/execution";
 import { PortfolioService } from "../services/portfolio";
 import { TokenAnalysisService } from "../services/tokenAnalysis";
 import { TradingService } from "../services/trading";
-import { TokenResult } from "../types/token";
 import { deduplicateTokens } from "../utils/token";
 
 export class TradingWorkflow {
@@ -20,6 +19,7 @@ export class TradingWorkflow {
     private tokenAnalysisService: TokenAnalysisService;
     private decisionMakerService: DecisionMakerService;
     private tradingService: TradingService;
+    private executionService: ExecutionService;
 
     constructor(runtime: IAgentRuntime) {
         this.runtime = runtime;
@@ -29,6 +29,10 @@ export class TradingWorkflow {
         this.tokenAnalysisService = new TokenAnalysisService();
         this.decisionMakerService = new DecisionMakerService(runtime);
         this.tradingService = new TradingService({
+            rpcUrl: process.env.SOLANA_RPC_URL
+        });
+        this.executionService = new ExecutionService({
+            isDryRun: process.env.COOKFI_BIRDEYE_DRY_RUN === 'true',
             rpcUrl: process.env.SOLANA_RPC_URL
         });
     }
@@ -109,8 +113,12 @@ export class TradingWorkflow {
                     const decision = decisions[i];
                     const analysis = analysisResults[i];
 
-                    if (decision && decision.confidence >= 80) {
-                        await this.executeDecision(token, decision, analysis.marketAnalysis);
+                    if (decision) {
+                        await this.executionService.executeDecision(
+                            token,
+                            decision,
+                            analysis.marketAnalysis
+                        );
                     }
                 }
 
@@ -124,54 +132,6 @@ export class TradingWorkflow {
             } finally {
                 this.isProcessing = false;
             }
-        }
-    }
-
-    private async executeDecision(
-        token: TokenResult,
-        decision: TradeDecision,
-        marketData: TokenPair[]
-    ) {
-        if (this.isDryRun) {
-            elizaLogger.log(`[DRY RUN] Would execute ${decision.recommendation} for ${token.symbol}`, {
-                confidence: decision.confidence,
-                reasoning: decision.reasoning
-            });
-            return;
-        }
-
-        try {
-            const bestPair = marketData[0];
-            
-            switch (decision.recommendation) {
-                case "BUY":
-                    if (decision.confidence >= 80) {
-                        await this.tradingService.swap({
-                            fromToken: "SOL",
-                            toToken: token.address,
-                            amount: 0.1 // Start with small amount
-                        });
-                        elizaLogger.log(`Executed BUY for ${token.symbol}`);
-                    }
-                    break;
-
-                case "SELL":
-                    if (decision.confidence >= 80 && token.balance) {
-                        await this.tradingService.swap({
-                            fromToken: token.address,
-                            toToken: "SOL",
-                            amount: token.balance.amount
-                        });
-                        elizaLogger.log(`Executed SELL for ${token.symbol}`);
-                    }
-                    break;
-
-                case "HOLD":
-                    elizaLogger.log(`Holding position in ${token.symbol}`);
-                    break;
-            }
-        } catch (error) {
-            elizaLogger.error(`Failed to execute ${decision.recommendation} for ${token.symbol}:`, error);
         }
     }
 }
