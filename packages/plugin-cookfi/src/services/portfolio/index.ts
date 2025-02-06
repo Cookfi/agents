@@ -1,13 +1,16 @@
 import { elizaLogger } from "@elizaos/core";
-import type { TokenResult } from "../../types/token";
+import Moralis from "moralis";
+import { TokenResult } from "../../types/token";
+import { PORTFOLIO_CONFIG } from "./config";
 import type {
-    BirdeyePortfolioResponse
+    PortfolioResponse,
+    TokenBalance
 } from "./types";
-
-const BIRDEYE_ENDPOINT = "https://public-api.birdeye.so/v1/wallet/token_list";
 
 export class PortfolioService {
     private walletAddress: string;
+    private lastFetchTime: number = 0;
+    private cachedPortfolio: PortfolioResponse | null = null;
 
     constructor() {
         this.walletAddress = process.env.COOKFI_SOLANA_PUBLIC_KEY || "";
@@ -16,64 +19,98 @@ export class PortfolioService {
         }
     }
 
-    /**
-     * Fetch portfolio data from Birdeye API
-     */
-    private async fetchPortfolioData(): Promise<BirdeyePortfolioResponse | null> {
-        if (!this.walletAddress || !process.env.COOKFI_BIRDEYE_API_KEY) {
-            elizaLogger.warn(
-                "Missing required environment variables for portfolio service"
-            );
-            return null;
+    public async initialize(): Promise<void> {
+        if (Moralis.Core.isStarted) return;
+
+        const apiKey = process.env.COOKFI_MORALIS_API_KEY;
+        if (!apiKey) {
+            throw new Error("COOKFI_MORALIS_API_KEY not found in environment variables");
         }
 
         try {
-            const response = await fetch(
-                `${BIRDEYE_ENDPOINT}?wallet=${this.walletAddress}`,
-                {
-                    headers: {
-                        "X-API-KEY": process.env.COOKFI_BIRDEYE_API_KEY,
-                        Accept: "application/json"
-                    }
-                }
-            );
+            await Moralis.start({ apiKey });
+        } catch (error) {
+            elizaLogger.error("Failed to initialize Moralis:", error);
+            throw error;
+        }
+    }
 
-            if (!response.ok) {
-                elizaLogger.warn(`Birdeye API error: ${response.status}`);
-                return null;
+    private shouldRefreshCache(): boolean {
+        return (
+            !this.cachedPortfolio ||
+            Date.now() - this.lastFetchTime > PORTFOLIO_CONFIG.CACHE_TTL
+        );
+    }
+
+    private transformMoralisResponse(response: any): PortfolioResponse {
+        return {
+            nativeBalance: response.nativeBalance,
+            tokens: response.tokens.map(
+                (token: any): TokenBalance => ({
+                    associatedTokenAddress: token.associatedTokenAddress,
+                    mint: token.mint,
+                    amountRaw: token.amountRaw,
+                    amount: token.amount,
+                    decimals: token.decimals,
+                    name: token.name,
+                    symbol: token.symbol,
+                    logo: token.logo || null,
+                })
+            ),
+        };
+    }
+
+    /**
+     * Get portfolio balance including SOL and all tokens
+     * @returns Promise containing portfolio balance information
+     */
+    async getPortfolio(): Promise<PortfolioResponse> {
+        try {
+            if (!this.shouldRefreshCache()) {
+                return this.cachedPortfolio!;
             }
 
-            const data = await response.json();
-            return data as BirdeyePortfolioResponse;
+            await this.initialize();
+
+            const response = await Moralis.SolApi.account.getPortfolio({
+                network: PORTFOLIO_CONFIG.NETWORK,
+                address: this.walletAddress,
+            });
+
+            this.cachedPortfolio = this.transformMoralisResponse(response.raw);
+            this.lastFetchTime = Date.now();
+
+            return this.cachedPortfolio;
         } catch (error) {
-            elizaLogger.warn("Failed to fetch portfolio data:", error);
-            return null;
+            elizaLogger.error("Failed to fetch portfolio:", error);
+            throw error;
         }
     }
 
     /**
      * Get portfolio tokens with balance information
+     * @returns Promise containing array of token information
      */
     async getTokens(): Promise<TokenResult[]> {
-        const data = await this.fetchPortfolioData();
-        
-        if (!data?.data?.items) {
-            return [];
-        }
-
         try {
-            const tokens = data.data.items
-                .filter(item => item.symbol !== "SOL") // Filter out SOL token
-                .map(item => ({
-                    symbol: item.symbol,
-                    name: item.name,
-                    address: item.address,
-                    chainId: "solana",
-                    balance: {
-                        amount: item.amount,
-                        usdValue: item.value
-                    }
-                }));
+            const portfolio = await this.getPortfolio();
+
+            if (!portfolio?.tokens) {
+                return [];
+            }
+
+            const tokens = portfolio.tokens.map((token) => ({
+                symbol: token.symbol,
+                name: token.name,
+                address: token.mint,
+                chainId: "solana",
+                balance: {
+                    amount: parseFloat(token.amount),
+                    usdValue: 0, // Note: Moralis doesn't provide USD value directly
+                },
+            }));
+
+            console.log("tokens", tokens);
 
             return tokens;
         } catch (error) {
@@ -83,4 +120,4 @@ export class PortfolioService {
     }
 }
 
-export default PortfolioService; 
+export default PortfolioService;

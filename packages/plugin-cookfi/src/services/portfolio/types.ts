@@ -1,61 +1,28 @@
-export interface BirdeyeTokenBalance {
-    address: string;
-    symbol: string;
-    name: string;
-    logoURI: string;
-    decimals: number;
-    price: number;
-    value: number;
-    amount: number;
-    coingeckoId: string;
-    holder: number;
-    supply: string;
-    volume: number;
-}
-
-export interface BirdeyePortfolioResponse {
-    data: {
-        items: BirdeyeTokenBalance[];
-        totalValue: number;
-        solValue: number;
-        tokenValue: number;
-    };
-    success: boolean;
+export interface NativeBalance {
+    lamports: string;
+    solana: string;
 }
 
 export interface TokenBalance {
+    associatedTokenAddress: string;
     mint: string;
-    symbol: string;
-    name: string;
-    logo?: string;
-    amount: number;
+    amountRaw: string;
+    amount: string;
     decimals: number;
-    usdValue: number;
-    price: number;
+    name: string;
+    symbol: string;
+    logo: string | null;
 }
 
-export interface PortfolioBalance {
-    sol: {
-        amount: number;
-        usdValue: number;
-    };
+export interface PortfolioResponse {
+    nativeBalance: NativeBalance;
     tokens: TokenBalance[];
-    totalUsdValue: number;
-}
-
-export interface PortfolioServiceConfig {
-    walletAddress: string;
 }
 
 export interface TokenMetadata {
+    mint: string;
+    name: string;
     symbol: string;
+    logo: string | null;
     decimals: number;
-    price?: number;
-}
-
-export interface PriceData {
-    [tokenAddress: string]: {
-        price: number;
-        timestamp: number;
-    };
 }

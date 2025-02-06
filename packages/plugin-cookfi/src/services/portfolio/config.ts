@@ -1,3 +1,4 @@
 export const PORTFOLIO_CONFIG = {
-    BIRDEYE_ENDPOINT: "https://public-api.birdeye.so/v1/wallet/token_list"
-};
+    NETWORK: "mainnet",
+    CACHE_TTL: 60 * 1000, // 1 minute
+} as const;
