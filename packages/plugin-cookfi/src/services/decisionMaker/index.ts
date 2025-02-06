@@ -57,11 +57,11 @@ export class DecisionMakerService {
             });
 
             const template = `Analyze the following token data and provide a trading recommendation.
-${!hasPosition ? "Note: We don't own this token yet, so only BUY is possible." : ""}
+${hasPosition ? "Note: We already own this token, so only SELL or HOLD is possible." : "Note: We don't own this token yet, so only BUY is possible."}
 
 Return the response as a JSON object with the following structure:
 {
-  "recommendation": "${hasPosition ? '"BUY" | "SELL" | "HOLD"' : '"BUY"'}",
+  "recommendation": "${hasPosition ? '"SELL" | "HOLD"' : '"BUY"'}",
   "confidence": number (0-100),
   "reasoning": string explaining the decision,
   "risks": array of potential risks,
@@ -93,6 +93,15 @@ ${JSON.stringify({
 
             const decision = result.object as TradeDecision;
             
+            // Validate the recommendation based on position
+            if (hasPosition && decision.recommendation === 'BUY') {
+                elizaLogger.warn(`Invalid BUY recommendation for ${token.symbol} when position exists, defaulting to HOLD`);
+                decision.recommendation = 'HOLD';
+            } else if (!hasPosition && (decision.recommendation === 'SELL' || decision.recommendation === 'HOLD')) {
+                elizaLogger.warn(`Invalid ${decision.recommendation} recommendation for ${token.symbol} when no position exists, defaulting to BUY`);
+                decision.recommendation = 'BUY';
+            }
+
             elizaLogger.log(
                 `Trade decision for ${token.symbol}:`,
                 decision

@@ -4,28 +4,34 @@ import { TokenResult } from "../../types/token";
 import { PORTFOLIO_CONFIG } from "./config";
 import type {
     PortfolioResponse,
-    PortfolioServiceConfig,
-    TokenBalance,
+    TokenBalance
 } from "./types";
 
 export class PortfolioService {
-    private address: string;
+    private walletAddress: string;
     private lastFetchTime: number = 0;
     private cachedPortfolio: PortfolioResponse | null = null;
 
-    constructor(config: PortfolioServiceConfig) {
-        this.address = config.address;
+    constructor() {
+        this.walletAddress = process.env.COOKFI_SOLANA_PUBLIC_KEY || "";
+        if (!this.walletAddress) {
+            elizaLogger.warn("COOKFI_SOLANA_PUBLIC_KEY is not set in environment");
+        }
     }
 
-    private async initializeMoralis() {
-        if (!Moralis.Core.isStarted) {
-            const apiKey = process.env.MORALIS_API_KEY;
-            if (!apiKey) {
-                throw new Error(
-                    "MORALIS_API_KEY not found in environment variables"
-                );
-            }
+    public async initialize(): Promise<void> {
+        if (Moralis.Core.isStarted) return;
+
+        const apiKey = process.env.COOKFI_MORALIS_API_KEY;
+        if (!apiKey) {
+            throw new Error("COOKFI_MORALIS_API_KEY not found in environment variables");
+        }
+
+        try {
             await Moralis.start({ apiKey });
+        } catch (error) {
+            elizaLogger.error("Failed to initialize Moralis:", error);
+            throw error;
         }
     }
 
@@ -64,11 +70,11 @@ export class PortfolioService {
                 return this.cachedPortfolio!;
             }
 
-            await this.initializeMoralis();
+            await this.initialize();
 
             const response = await Moralis.SolApi.account.getPortfolio({
                 network: PORTFOLIO_CONFIG.NETWORK,
-                address: this.address,
+                address: this.walletAddress,
             });
 
             this.cachedPortfolio = this.transformMoralisResponse(response.raw);
@@ -103,6 +109,8 @@ export class PortfolioService {
                     usdValue: 0, // Note: Moralis doesn't provide USD value directly
                 },
             }));
+
+            console.log("tokens", tokens);
 
             return tokens;
         } catch (error) {

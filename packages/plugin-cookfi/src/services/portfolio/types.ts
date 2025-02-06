@@ -1,7 +1,3 @@
-export interface PortfolioServiceConfig {
-    address: string;
-}
-
 export interface NativeBalance {
     lamports: string;
     solana: string;
