@@ -1,25 +1,27 @@
-import { TwitterClientInterface } from "@elizaos/client-twitter";
 import type { IAgentRuntime } from "@elizaos/core";
-import { elizaLogger } from "@elizaos/core";
+import { composeContext, elizaLogger, generateText, ModelClass, stringToUuid } from "@elizaos/core";
+import { Scraper } from 'agent-twitter-client';
 import type { ExecutionResult } from "../execution/types";
 import type { TradeAlert, TwitterConfig } from "./types";
 import { TwitterConfigSchema } from "./types";
 
 export class TwitterService {
-    private client: any;
+    private client: Scraper;
     private config: TwitterConfig;
     private static instance: TwitterService;
+    private runtime: IAgentRuntime;
 
-    private constructor(client: any, config: TwitterConfig) {
+    private constructor(client: Scraper, config: TwitterConfig, runtime: IAgentRuntime) {
         this.client = client;
         this.config = config;
+        this.runtime = runtime;
     }
 
     public static async getInstance(runtime: IAgentRuntime): Promise<TwitterService | undefined> {
         if (!TwitterService.instance) {
-            const username = runtime.getSetting("COOKFI_TWITTER_USERNAME");
-            const password = runtime.getSetting("COOKFI_TWITTER_PASSWORD");
-            const email = runtime.getSetting("COOKFI_TWITTER_EMAIL");
+            const username = process.env.COOKFI_TWITTER_USERNAME;
+            const password = process.env.COOKFI_TWITTER_PASSWORD;
+            const email = process.env.COOKFI_TWITTER_EMAIL;
 
             if (!username || !password || !email) {
                 elizaLogger.warn("Twitter credentials not configured, notifications disabled");
@@ -32,13 +34,15 @@ export class TwitterService {
                     username,
                     password,
                     email,
-                    dryRun: runtime.getSetting("TWITTER_DRY_RUN") === "true"
+                    dryRun: false
                 });
 
-                const twitterClient = await TwitterClientInterface.start(runtime);
-                TwitterService.instance = new TwitterService(twitterClient, config);
+                const scraper = new Scraper();
+                await scraper.login(username, password, email);
+
+                TwitterService.instance = new TwitterService(scraper, config, runtime);
             } catch (error) {
-                elizaLogger.error("Failed to initialize Twitter service:", error);
+                console.log("Failed to initialize Twitter service:", error);
                 return undefined;
             }
         }
@@ -58,39 +62,44 @@ export class TwitterService {
         return "LOW";
     }
 
-    private formatTradeAlert(alert: TradeAlert): string {
-        const priceChangePrefix = alert.marketData.priceChange24h >= 0 ? "+" : "";
-        const confidenceEmoji = alert.confidence >= 0.8 ? "🟢" : alert.confidence >= 0.5 ? "🟡" : "🔴";
+    private async generateTweetContent(alert: TradeAlert): Promise<string> {
+        const template = `Create a concise trading alert tweet (max 280 chars) for ${alert.token} with the following data:
 
-        if (alert.action === "SELL") {
-            const actionEmoji = Number(alert.profitPercent?.replace("%", "")) >= 0 
-                ? "💰 PROFIT SELL" 
-                : "🔴 LOSS SELL";
+Action: ${alert.action}
+Price: $${alert.price?.toFixed(6)}
+24h Change: ${alert.marketData.priceChange24h.toFixed(1)}%
+Risk Level: ${alert.riskLevel}
+Confidence: ${(alert.confidence * 100).toFixed(0)}%
+Reasoning: ${alert.reason}
 
-            const lines = [
-                `${actionEmoji} | ${alert.token}`,
-                `📊 P/L: ${alert.profitPercent}`,
-                `⚠️ Risk: ${alert.riskLevel}`,
-                `💲 Price: $${alert.price?.toFixed(6)}`,
-                `📈 24h: ${priceChangePrefix}${alert.marketData.priceChange24h.toFixed(1)}%`,
-                alert.signature ? `🔍 https://solscan.io/tx/${alert.signature}` : null,
-                `$${alert.token}`,
-            ];
+Guidelines:
+- Never use emojis
+- Include cashtag $${alert.token}
+- Include transaction link if available
+- For SELL, include profit/loss
+- Keep it professional and informative
+- Must be under 280 characters`;
 
-            return lines.filter(Boolean).join("\n");
-        } else {
-            const lines = [
-                `🟢 BUY | ${alert.token}`,
-                `🎯 Confidence: ${confidenceEmoji} ${(alert.confidence * 100).toFixed(0)}%`,
-                `📈 24h: ${priceChangePrefix}${alert.marketData.priceChange24h.toFixed(1)}%`,
-                `⚠️ Risk: ${alert.riskLevel}`,
-                `💲 Price: $${alert.price?.toFixed(6)}`,
-                alert.signature ? `🔍 https://solscan.io/tx/${alert.signature}` : null,
-                `$${alert.token}`,
-            ];
+        const context = composeContext({
+            state: await this.runtime.composeState({
+                userId: this.runtime.agentId,
+                agentId: this.runtime.agentId,
+                roomId: stringToUuid(`tweet-${alert.token}`),
+                content: {
+                    text: alert.token,
+                    type: "trade_alert"
+                }
+            }),
+            template
+        });
 
-            return lines.filter(Boolean).join("\n");
-        }
+        const result = await generateText({
+            runtime: this.runtime,
+            context,
+            modelClass: ModelClass.SMALL,
+        });
+
+        return result.trim();
     }
 
     async notifySuccessfulTrades(executions: ExecutionResult[]): Promise<void> {
@@ -98,7 +107,11 @@ export class TwitterService {
             exec.success && 
             (exec.action === "BUY" || exec.action === "SELL") &&
             exec.token &&
-            exec.marketData?.[0]
+            exec.marketData?.[0] &&
+            // Skip LOSS SELL notifications
+            !(exec.action === "SELL" && exec.decision?.recommendation === "SELL" && 
+              (exec.decision.reasoning.toLowerCase().includes("loss") || 
+               exec.decision.reasoning.toLowerCase().includes("stop loss")))
         );
 
         for (const trade of successfulTrades) {
@@ -109,7 +122,7 @@ export class TwitterService {
                 token: trade.token!.symbol,
                 tokenAddress: trade.token!.address,
                 amount: trade.amount || 0,
-                confidence,
+                confidence: confidence / 100, // Convert from 0-100 to 0-1 scale
                 riskLevel: this.calculateRiskLevel(
                     {
                         priceChange24h: marketData.priceChange?.h24 || 0,
@@ -118,7 +131,7 @@ export class TwitterService {
                             usd: marketData.liquidity?.usd || 0
                         }
                     },
-                    confidence
+                    confidence / 100
                 ),
                 marketData: {
                     priceChange24h: marketData.priceChange?.h24 || 0,
@@ -131,7 +144,8 @@ export class TwitterService {
                 signature: trade.signature,
                 action: trade.action,
                 price: Number(marketData.priceUsd),
-                reason: trade.decision?.reasoning
+                reason: trade.decision?.reasoning,
+                profitPercent: trade.decision?.opportunities?.[0] || undefined // This should be updated to use actual P/L data if available
             };
 
             await this.postTradeAlert(alert);
@@ -140,14 +154,14 @@ export class TwitterService {
 
     async postTradeAlert(alert: TradeAlert): Promise<boolean> {
         try {
-            const tweetContent = this.formatTradeAlert(alert);
+            const tweetContent = await this.generateTweetContent(alert);
 
             if (this.config.dryRun) {
                 elizaLogger.log("Dry run mode - would have posted tweet:", tweetContent);
                 return true;
             }
 
-            await this.client.post.client.twitterClient.sendTweet(tweetContent);
+            await this.client.sendTweet(tweetContent);
             elizaLogger.log("Successfully posted trade alert to Twitter:", {
                 content: tweetContent,
             });

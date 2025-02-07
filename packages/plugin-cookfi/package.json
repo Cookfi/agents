@@ -5,7 +5,7 @@
     "type": "module",
     "types": "dist/index.d.ts",
     "dependencies": {
-        "@elizaos/client-twitter": "workspace:*",
+        "agent-twitter-client": "0.0.18",
         "@elizaos/core": "workspace:*",
         "@solana/web3.js": "npm:@solana/web3.js@1.95.8",
         "axios": "^1.6.7",
