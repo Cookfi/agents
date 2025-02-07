@@ -85,6 +85,7 @@ Guidelines:
 - Sound like a real person, not a bot
 - Include transaction link if available
 - For SELL, briefly mention if profit/loss but don't give specific numbers
+- never put link in the tweet
 
 Example BUY style:
 "Aping into $XXX, loving the community vibes. Team seems based, could be interesting. DYOR"
