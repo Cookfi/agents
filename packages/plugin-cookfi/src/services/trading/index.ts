@@ -68,18 +68,18 @@ export class TradingService {
                 });
 
             } catch (error) {
-                lastError = error as Error;
+                // Ensure error is properly captured
+                lastError = error instanceof Error ? error : new Error(String(error));
                 retryCount++;
+                
+                elizaLogger.warn(`Swap failed, attempt ${retryCount}/${MAX_RETRIES}`, {
+                    error: lastError.message,
+                    currentSlippage: `${currentSlippage * 100}%`,
+                    nextSlippage: `${Math.min(currentSlippage * 2, MAX_SLIPPAGE) * 100}%`
+                });
                 
                 if (retryCount < MAX_RETRIES) {
                     currentSlippage = Math.min(currentSlippage * 2, MAX_SLIPPAGE);
-                    
-                    elizaLogger.warn(`Swap failed, retrying in ${RETRY_DELAY/1000}s`, {
-                        attempt: retryCount,
-                        nextSlippage: `${currentSlippage * 100}%`,
-                        error: lastError.message
-                    });
-
                     await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
                     continue;
                 }
@@ -87,19 +87,19 @@ export class TradingService {
             }
         }
 
-        const finalError = new Error(
-            `Swap failed after ${retryCount} attempts. ` +
-            `Last error: ${lastError?.message}. ` +
-            `Max slippage reached: ${currentSlippage * 100}%`
-        );
+        // Ensure we have meaningful error information
+        const errorMessage = `Swap failed after ${retryCount} attempts. ` +
+            `Last error: ${lastError?.message || 'Unknown error'}. ` +
+            `Final slippage tried: ${(currentSlippage * 100).toFixed(1)}%`;
 
         elizaLogger.error("All swap attempts failed:", {
             attempts: retryCount,
             maxSlippageReached: currentSlippage >= MAX_SLIPPAGE,
-            finalError: finalError.message
+            lastError: lastError?.message || 'Unknown error',
+            finalSlippage: `${(currentSlippage * 100).toFixed(1)}%`
         });
 
-        throw finalError;
+        throw new Error(errorMessage);
     }
 
     /**
