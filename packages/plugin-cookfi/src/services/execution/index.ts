@@ -37,7 +37,10 @@ export class ExecutionService {
             return {
                 success: true,
                 action: "HOLD",
-                error: "Confidence too low"
+                error: "Confidence too low",
+                token,
+                decision,
+                marketData
             };
         }
 
@@ -46,51 +49,84 @@ export class ExecutionService {
                 confidence: decision.confidence,
                 reasoning: decision.reasoning
             });
-            return { success: true, action: decision.recommendation };
+            return { 
+                success: true, 
+                action: decision.recommendation,
+                token,
+                decision,
+                marketData
+            };
         }
 
         try {
             switch (decision.recommendation) {
                 case "BUY": {
                     const amount = this.calculateBuyAmount(decision.confidence);
-                    await this.tradingService.swap({
+                    const result = await this.tradingService.swap({
                         fromToken: "SOL",
                         toToken: token.address,
                         amount,
                         slippage: EXECUTION_CONFIG.TRADE.SLIPPAGE
                     });
                     elizaLogger.log(`Executed BUY for ${token.symbol} (${amount} SOL)`);
-                    return { success: true, action: "BUY", amount };
+                    return { 
+                        success: true, 
+                        action: "BUY", 
+                        amount,
+                        signature: result.signature,
+                        token,
+                        decision,
+                        marketData
+                    };
                 }
 
-                case "SELL":
+                case "SELL": {
                     if (token.balance) {
-                        console.log({
-                            fromToken: token.address,
-                            toToken: "SOL",
-                            amount: token.balance.amount,
-                            slippage: EXECUTION_CONFIG.TRADE.SLIPPAGE
-                        })
-                        await this.tradingService.swap({
+                        const result = await this.tradingService.swap({
                             fromToken: token.address,
                             toToken: "SOL",
                             amount: token.balance.amount,
                         });
                         elizaLogger.log(`Executed SELL for ${token.symbol}`);
-                        return { success: true, action: "SELL", amount: token.balance.amount };
+                        return { 
+                            success: true, 
+                            action: "SELL", 
+                            amount: token.balance.amount,
+                            signature: result.signature,
+                            token,
+                            decision,
+                            marketData
+                        };
                     }
-                    return { success: false, action: "SELL", error: "No balance" };
+                    return { 
+                        success: false, 
+                        action: "SELL", 
+                        error: "No balance",
+                        token,
+                        decision,
+                        marketData
+                    };
+                }
 
                 case "HOLD":
                     elizaLogger.log(`Holding position in ${token.symbol}`);
-                    return { success: true, action: "HOLD" };
+                    return { 
+                        success: true, 
+                        action: "HOLD",
+                        token,
+                        decision,
+                        marketData
+                    };
             }
         } catch (error) {
             elizaLogger.error(`Failed to execute ${decision.recommendation} for ${token.symbol}:`, error);
             return {
                 success: false,
                 action: decision.recommendation,
-                error: error instanceof Error ? error.message : "Unknown error"
+                error: error instanceof Error ? error.message : "Unknown error",
+                token,
+                decision,
+                marketData
             };
         }
     }

@@ -5,6 +5,7 @@ import { PortfolioService } from "../services/portfolio";
 import { TokenAnalysisService } from "../services/tokenAnalysis";
 import { TopWalletsService } from "../services/topwallets";
 import { TradingService } from "../services/trading";
+import { TwitterService } from "../services/twitter";
 import { deduplicateTokens } from "../utils/token";
 
 export class TradingWorkflow {
@@ -20,6 +21,7 @@ export class TradingWorkflow {
     private decisionMakerService: DecisionMakerService;
     private tradingService: TradingService;
     private executionService: ExecutionService;
+    private twitterService?: TwitterService;
 
     constructor(runtime: IAgentRuntime) {
         this.runtime = runtime;
@@ -34,6 +36,11 @@ export class TradingWorkflow {
         this.executionService = new ExecutionService({
             isDryRun: process.env.COOKFI_DRY_RUN === 'true',
             rpcUrl: process.env.SOLANA_RPC_URL
+        });
+
+        // Initialize Twitter service
+        TwitterService.getInstance(runtime).then(service => {
+            this.twitterService = service;
         });
     }
 
@@ -110,18 +117,19 @@ export class TradingWorkflow {
                 });
 
                 // Execute trading decisions
-                for (let i = 0; i < tokensToAnalyze.length; i++) {
-                    const token = tokensToAnalyze[i];
-                    const decision = decisions[i];
-                    const analysis = analysisResults[i];
-
-                    if (decision) {
-                        await this.executionService.executeDecision(
+                const executionResults = await Promise.all(
+                    tokensToAnalyze.map((token, index) =>
+                        this.executionService.executeDecision(
                             token,
-                            decision,
-                            analysis.marketAnalysis
-                        );
-                    }
+                            decisions[index],
+                            analysisResults[index].marketAnalysis
+                        )
+                    )
+                );
+
+                // Notify successful trades using the Twitter service
+                if (this.twitterService) {
+                    await this.twitterService.notifySuccessfulTrades(executionResults);
                 }
 
                 await new Promise(resolve => 
