@@ -46,3 +46,11 @@ export interface SearchTweetsParams {
     query: string;
     max_results?: number;
 }
+
+export interface TokenAnalysis {
+    symbol: string;
+    tweets: EnhancedTweet[];
+    totalEngagementScore: number;
+    tweetCount: number;
+    averageScore: number;
+}
