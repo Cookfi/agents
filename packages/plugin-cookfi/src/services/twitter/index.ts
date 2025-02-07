@@ -17,10 +17,9 @@ export class TwitterService {
 
     public static async getInstance(runtime: IAgentRuntime): Promise<TwitterService | undefined> {
         if (!TwitterService.instance) {
-            const username = runtime.getSetting("TWITTER_USERNAME");
-            const password = runtime.getSetting("TWITTER_PASSWORD");
-            const email = runtime.getSetting("TWITTER_EMAIL");
-            const twoFactorSecret = runtime.getSetting("TWITTER_2FA_SECRET");
+            const username = runtime.getSetting("COOKFI_TWITTER_USERNAME");
+            const password = runtime.getSetting("COOKFI_TWITTER_PASSWORD");
+            const email = runtime.getSetting("COOKFI_TWITTER_EMAIL");
 
             if (!username || !password || !email) {
                 elizaLogger.warn("Twitter credentials not configured, notifications disabled");
@@ -33,7 +32,6 @@ export class TwitterService {
                     username,
                     password,
                     email,
-                    twoFactorSecret,
                     dryRun: runtime.getSetting("TWITTER_DRY_RUN") === "true"
                 });
 
