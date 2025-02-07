@@ -62,7 +62,7 @@ export class ExecutionService {
             switch (decision.recommendation) {
                 case "BUY": {
                     const amount = this.calculateBuyAmount(decision.confidence);
-                    const result = await this.tradingService.swap({
+                    const result = await this.tradingService.swapWithRetry({
                         fromToken: "SOL",
                         toToken: token.address,
                         amount,
@@ -82,7 +82,7 @@ export class ExecutionService {
 
                 case "SELL": {
                     if (token.balance) {
-                        const result = await this.tradingService.swap({
+                        const result = await this.tradingService.swapWithRetry({
                             fromToken: token.address,
                             toToken: "SOL",
                             amount: token.balance.amount,

@@ -1,5 +1,5 @@
 import { elizaLogger } from "@elizaos/core";
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey, SendTransactionError } from "@solana/web3.js";
 import { SolanaAgentKit } from "solana-agent-kit";
 import { TRADING_CONFIG } from "./config";
 import type {
@@ -15,7 +15,8 @@ import type {
 } from "./types";
 
 const SOL_ADDRESS = "So11111111111111111111111111111111111111112";
-const MAX_RETRIES = 10;
+const MAX_RETRIES = 5;
+const RETRY_DELAY = 5000; // 5 seconds
 const INITIAL_SLIPPAGE = 0.03; // 3%
 const MAX_SLIPPAGE = 0.3; // 30%
 
@@ -45,37 +46,88 @@ export class TradingService {
     }
 
     /**
-     * Swap tokens using Jupiter aggregator with retry mechanism
+     * Attempt swap with retries and increasing slippage
+     */
+    async swapWithRetry(params: SwapParams): Promise<SwapResponse> {
+        let retryCount = 0;
+        let currentSlippage = params.slippage || INITIAL_SLIPPAGE;
+        let lastError: Error | null = null;
+
+        while (retryCount < MAX_RETRIES && currentSlippage <= MAX_SLIPPAGE) {
+            try {
+                elizaLogger.log(`Swap attempt ${retryCount + 1}/${MAX_RETRIES}`, {
+                    slippage: `${currentSlippage * 100}%`,
+                    fromToken: params.fromToken,
+                    toToken: params.toToken,
+                    amount: params.amount
+                });
+
+                return await this.swap({
+                    ...params,
+                    slippage: currentSlippage
+                });
+
+            } catch (error) {
+                lastError = error as Error;
+                retryCount++;
+                
+                if (retryCount < MAX_RETRIES) {
+                    currentSlippage = Math.min(currentSlippage * 2, MAX_SLIPPAGE);
+                    
+                    elizaLogger.warn(`Swap failed, retrying in ${RETRY_DELAY/1000}s`, {
+                        attempt: retryCount,
+                        nextSlippage: `${currentSlippage * 100}%`,
+                        error: lastError.message
+                    });
+
+                    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+                    continue;
+                }
+                break;
+            }
+        }
+
+        const finalError = new Error(
+            `Swap failed after ${retryCount} attempts. ` +
+            `Last error: ${lastError?.message}. ` +
+            `Max slippage reached: ${currentSlippage * 100}%`
+        );
+
+        elizaLogger.error("All swap attempts failed:", {
+            attempts: retryCount,
+            maxSlippageReached: currentSlippage >= MAX_SLIPPAGE,
+            finalError: finalError.message
+        });
+
+        throw finalError;
+    }
+
+    /**
+     * Swap tokens using Jupiter aggregator
      * @param params Swap parameters including fromToken, toToken, and amount
      * @returns Promise containing swap transaction signature and amounts
      */
     async swap(params: SwapParams): Promise<SwapResponse> {
-        let lastError: Error | undefined;
-        let currentSlippage = params.slippage || INITIAL_SLIPPAGE;
-        let retryCount = 0;
+        try {
+            // Handle SOL address consistently
+            const outputMint = new PublicKey(
+                params.toToken === "SOL" ? SOL_ADDRESS : params.toToken
+            );
+            const inputMint = params.fromToken ? new PublicKey(
+                params.fromToken === "SOL" ? SOL_ADDRESS : params.fromToken
+            ) : undefined;
 
-        while (retryCount < MAX_RETRIES && currentSlippage <= MAX_SLIPPAGE) {
+            // Convert slippage to basis points (1% = 100 basis points)
+            const slippageBps = params.slippage ? Math.floor(params.slippage * 100) : 300;
+
+            elizaLogger.log("Executing swap:", {
+                outputMint: outputMint.toString(),
+                inputMint: inputMint?.toString(),
+                inputAmount: params.amount,
+                slippageBps
+            });
+
             try {
-                // Handle SOL address consistently
-                const outputMint = new PublicKey(
-                    params.toToken === "SOL" ? SOL_ADDRESS : params.toToken
-                );
-                const inputMint = params.fromToken ? new PublicKey(
-                    params.fromToken === "SOL" ? SOL_ADDRESS : params.fromToken
-                ) : undefined;
-
-                // Convert slippage to basis points (1% = 100 basis points)
-                const slippageBps = Math.floor(currentSlippage * 100);
-
-                elizaLogger.log("Executing swap attempt:", {
-                    outputMint: outputMint.toString(),
-                    inputMint: inputMint?.toString(),
-                    inputAmount: params.amount,
-                    slippageBps,
-                    retryCount: retryCount + 1,
-                    currentSlippage: `${currentSlippage * 100}%`
-                });
-
                 const signature = await this.agent.trade(
                     outputMint,
                     params.amount,
@@ -83,57 +135,39 @@ export class TradingService {
                     slippageBps
                 );
 
-                elizaLogger.log("Swap successful:", {
-                    signature,
-                    finalSlippage: `${currentSlippage * 100}%`,
-                    attempts: retryCount + 1
-                });
+                elizaLogger.log("Swap successful:", signature);
 
                 return {
                     signature,
                     fromAmount: params.amount,
                     toAmount: params.amount
                 };
-
             } catch (error) {
-                lastError = error as Error;
-                retryCount++;
-                currentSlippage *= 2;
-
-                // Check if we should continue retrying
-                if (retryCount < MAX_RETRIES && currentSlippage <= MAX_SLIPPAGE) {
-                    elizaLogger.warn("Swap failed, retrying with higher slippage", {
-                        attempt: retryCount,
-                        newSlippage: `${currentSlippage * 100}%`,
-                        error: error instanceof Error ? error.message : "Unknown error"
-                    });
+                console.log(error);
+                if (error instanceof SendTransactionError) {
+                    const logs = error.logs;
+                    elizaLogger.error("Swap transaction failed. Full logs:", logs);
                     
-                    // Add a small delay before retrying
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    continue;
+                    // Check for specific error conditions
+                    if (logs?.some(log => log.includes("insufficient funds"))) {
+                        throw new Error("Insufficient funds for swap");
+                    }
+                    if (logs?.some(log => log.includes("slippage tolerance exceeded"))) {
+                        throw new Error("Price moved too much, try increasing slippage");
+                    }
                 }
-
-                // If we reach here, we've hit max retries or max slippage
-                break;
+                throw error;
             }
+        } catch (error) {
+            console.log(error);
+            elizaLogger.error("Swap failed:", {
+                error,
+                message: error instanceof Error ? error.message : "Unknown error",
+                token: params.toToken,
+                amount: params.amount
+            });
+            throw error;
         }
-
-        // If we've exhausted all retries or hit max slippage
-        const finalError = new Error(
-            `Swap failed after ${retryCount} retries. ` +
-            `Last error: ${lastError?.message || "Unknown error"}. ` +
-            `Final slippage attempted: ${currentSlippage * 100}%`
-        );
-        
-        elizaLogger.error("Swap failed permanently:", {
-            error: finalError,
-            attempts: retryCount,
-            maxSlippageReached: currentSlippage >= MAX_SLIPPAGE,
-            token: params.toToken,
-            amount: params.amount
-        });
-        
-        throw finalError;
     }
 
     /**
