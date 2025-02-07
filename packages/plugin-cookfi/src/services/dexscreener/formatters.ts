@@ -1,4 +1,5 @@
 import { TokenPair } from "./types";
+import { calculateTokenScore } from "./scoring";
 
 export function formatNumber(num: number | undefined | null): string {
     if (num === undefined || num === null) return "0";
@@ -16,14 +17,13 @@ export function formatTokenData(
 } {
     return {
         tickers: pairs.map(pair => `$${pair.baseToken.symbol}`),
-        marketData: pairs.map(
-            pair =>
-                `${pair.baseToken.symbol} | $${
-                    pair.priceUsd
-                } | Vol: $${formatNumber(pair.volume?.h24)} | ` +
-                `Liq: $${formatNumber(pair.liquidity?.usd)} | ${pair.dexId} | ${
-                    pair.chainId
-                }`
-        )
+        marketData: pairs.map(pair => {
+            const score = calculateTokenScore(pair);
+            return `${pair.baseToken.symbol} | $${pair.priceUsd} | ` +
+                   `Vol: $${formatNumber(pair.volume?.h24)} | ` +
+                   `Liq: $${formatNumber(pair.liquidity?.usd)} | ` +
+                   `Score: ${score.toFixed(1)} | ` +
+                   `${pair.dexId} | ${pair.chainId}`;
+        })
     };
 }

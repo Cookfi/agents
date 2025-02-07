@@ -1,6 +1,5 @@
 import type { EnhancedTweet } from "../cookie/types";
 import type { TokenPair } from "../dexscreener/types";
-import type { TokenEngagement } from "./db";
 
 export interface PositionAnalysis {
     currentPriceUsd: number;
@@ -11,13 +10,8 @@ export interface PositionAnalysis {
 }
 
 export interface TokenAnalysisResult {
-    marketData: TokenPair[];
-    socialAnalysis: {
-        ticker: string;
-        tweets: EnhancedTweet[]
-       
-        marketScore: number;
-    }[];
-    
+    marketAnalysis: TokenPair[];
+    socialAnalysis: EnhancedTweet[];
     positionAnalysis: PositionAnalysis;
+   
 } 
