@@ -108,7 +108,7 @@ Example SELL style:
         const result = await generateText({
             runtime: this.runtime,
             context,
-            modelClass: ModelClass.SMALL,
+            modelClass: ModelClass.MEDIUM,
         });
 
         return result.trim();

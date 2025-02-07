@@ -28,7 +28,7 @@ export const models: Models = {
                 maxOutputTokens: 8192,
                 frequency_penalty: 0.0,
                 presence_penalty: 0.0,
-                temperature: 0.6,
+                temperature: 0.75,
             },
             [ModelClass.LARGE]: {
                 name: settings.LARGE_OPENAI_MODEL || "gpt-4o",
