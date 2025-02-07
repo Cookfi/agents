@@ -1,9 +1,9 @@
 import { elizaLogger, type IAgentRuntime } from "@elizaos/core";
 import { DecisionMakerService } from "../services/decisionMaker";
-import { DexScreenerService } from "../services/dexscreener";
 import { ExecutionService } from "../services/execution";
 import { PortfolioService } from "../services/portfolio";
 import { TokenAnalysisService } from "../services/tokenAnalysis";
+import { TopWalletsService } from "../services/topwallets";
 import { TradingService } from "../services/trading";
 import { deduplicateTokens } from "../utils/token";
 
@@ -14,7 +14,7 @@ export class TradingWorkflow {
     private readonly ANALYSIS_INTERVAL = 5 * 60 * 1000; // 5 minutes
     private isDryRun: boolean;
     
-    private dexScreenerService: DexScreenerService;
+    private topWalletsService: TopWalletsService;
     private portfolioService: PortfolioService;
     private tokenAnalysisService: TokenAnalysisService;
     private decisionMakerService: DecisionMakerService;
@@ -24,7 +24,7 @@ export class TradingWorkflow {
     constructor(runtime: IAgentRuntime) {
         this.runtime = runtime;
         this.isDryRun = process.env.COOKFI_BIRDEYE_DRY_RUN === 'true';
-        this.dexScreenerService = new DexScreenerService();
+        this.topWalletsService = TopWalletsService.getInstance();
         this.portfolioService = new PortfolioService();
         this.tokenAnalysisService = new TokenAnalysisService();
         this.decisionMakerService = new DecisionMakerService(runtime);
@@ -59,9 +59,11 @@ export class TradingWorkflow {
                 
                 // Fetch trending tokens and portfolio data in parallel
                 const [trendingTokens, portfolioTokens] = await Promise.all([
-                    this.dexScreenerService.getTrendingTokens(),
+                    this.topWalletsService.getTopWalletsToken(),
                     this.portfolioService.getTokens()
                 ]);
+
+                console.log({portfolioTokens});
 
                 // Combine and deduplicate tokens
                 const tokensToAnalyze = deduplicateTokens([

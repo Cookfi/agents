@@ -43,7 +43,13 @@ export class DecisionMakerService {
                 return null;
             }
 
+            
             const hasPosition = token.balance && token.balance.amount > 0;
+            console.log({
+                hasPosition, 
+                balance: token.balance,
+                symbol: token.symbol
+            })
             const positionInfo = hasPosition ? `
 Current Position Details:
 - ROI: ${analysis.positionAnalysis.roiNative.toFixed(2)}% in SOL
@@ -75,9 +81,9 @@ Social Analysis:
 
 Trading Guidelines:
 ${hasPosition ? `
-- Consider taking profits if ROI > 20%
-- Consider cutting losses if ROI < -10%
-- Consider holding if momentum is positive despite negative ROI
+- Consider taking profits (SELL) if ROI > 50%
+- Consider cutting losses (SELL) if ROI < -30%
+- Consider holding (HOLD) if momentum is positive despite negative ROI
 - Evaluate recent price action and social sentiment` : `
 - Look for strong upward price momentum
 - Consider social sentiment and trading volume
