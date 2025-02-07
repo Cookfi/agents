@@ -63,22 +63,34 @@ export class TwitterService {
     }
 
     private async generateTweetContent(alert: TradeAlert): Promise<string> {
-        const template = `Create a concise trading alert tweet (max 280 chars) for ${alert.token} with the following data:
+        const template = `You are a degen trader experimenting with Solana memecoins. Write a casual, fun tweet about your ${alert.action} trade.
 
+Context:
+Token: ${alert.token}
 Action: ${alert.action}
 Price: $${alert.price?.toFixed(6)}
-24h Change: ${alert.marketData.priceChange24h.toFixed(1)}%
-Risk Level: ${alert.riskLevel}
-Confidence: ${(alert.confidence * 100).toFixed(0)}%
 Reasoning: ${alert.reason}
+Key Opportunities: ${alert.opportunities?.join(', ')}
+Risks: ${alert.risks?.join(', ')}
 
 Guidelines:
+- Be casual and fun, like you're talking to friends
+- For BUY: Express excitement about potential but stay humble
+- For SELL: Share brief thoughts on the trade
+- Don't mention specific numbers or stats
+- Add cashtag $${alert.token}
+- Always end with "DYOR" or "NFA DYOR"
+- Keep it under 280 characters
 - Never use emojis
-- Include cashtag $${alert.token}
+- Sound like a real person, not a bot
 - Include transaction link if available
-- For SELL, include profit/loss
-- Keep it professional and informative
-- Must be under 280 characters`;
+- For SELL, briefly mention if profit/loss but don't give specific numbers
+
+Example BUY style:
+"Aping into $XXX, loving the community vibes. Team seems based, could be interesting. DYOR"
+
+Example SELL style:
+"Taking some profits on $XXX, been a fun ride! Thanks for the gains anon. DYOR"`;
 
         const context = composeContext({
             state: await this.runtime.composeState({
@@ -122,7 +134,7 @@ Guidelines:
                 token: trade.token!.symbol,
                 tokenAddress: trade.token!.address,
                 amount: trade.amount || 0,
-                confidence: confidence / 100, // Convert from 0-100 to 0-1 scale
+                confidence: confidence / 100,
                 riskLevel: this.calculateRiskLevel(
                     {
                         priceChange24h: marketData.priceChange?.h24 || 0,
@@ -145,7 +157,10 @@ Guidelines:
                 action: trade.action,
                 price: Number(marketData.priceUsd),
                 reason: trade.decision?.reasoning,
-                profitPercent: trade.decision?.opportunities?.[0] || undefined // This should be updated to use actual P/L data if available
+                // Add decision points
+                risks: trade.decision?.risks || [],
+                opportunities: trade.decision?.opportunities || [],
+                profitPercent: trade.decision?.opportunities?.[0] || undefined
             };
 
             await this.postTradeAlert(alert);

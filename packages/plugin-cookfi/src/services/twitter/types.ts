@@ -41,7 +41,8 @@ export interface TradeAlert {
     signature?: string;
     action: "BUY" | "SELL" | "HOLD";
     price?: number;
-    profitPercent?: string;
-    profitUsd?: string;
     reason?: string;
+    profitPercent?: string;
+    risks?: string[];
+    opportunities?: string[];
 }
