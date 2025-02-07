@@ -3,32 +3,51 @@ import { CookieService } from "../cookie";
 import { DexScreenerService } from "../dexscreener";
 import type { TokenPair } from "../dexscreener/types";
 import type { PositionAnalysis, TokenAnalysisResult } from "./types";
+import { TokenReportService } from "./token_report";
 
+    
 export class TokenAnalysisService {
     private cookieService: CookieService;
     private dexScreenerService: DexScreenerService;
 
+    private tokenReportService: TokenReportService;
+
     constructor() {
         this.cookieService = new CookieService();
         this.dexScreenerService = new DexScreenerService();
+        
+        this.tokenReportService = new TokenReportService();
     }
 
     async analyzeToken(token: TokenResult): Promise<TokenAnalysisResult> {
-        // Get market and social data in parallel
-        const [marketData, socialData] = await Promise.all([
+        if (!token?.symbol || !token?.chainId) {
+            throw new Error('Invalid token input: missing required fields');
+        }
+
+        console.log(`\n=== Starting analysis for token ${token.symbol} ===`);
+        
+        // Step 1: Fetch market data and trending token info in parallel
+        const [marketData, trendingTokenInfo] = await Promise.all([
             this.dexScreenerService.getTokenInfo(token.address, token.chainId),
-            this.cookieService.searchTweets({
-                query: `${token.symbol} $${token.symbol}`,
-                max_results: 10
-            })
+            this.dexScreenerService.getTrendingTokenInfo(token.address, token.chainId)
         ]);
 
+        // Validate trending token info
+        if (!trendingTokenInfo?.tickers?.length) {
+            console.warn('No trending token info found');
+        }
+
+        // Step 2: Fetch and analyze token using the TokenReportService
+        const { allAnalysis: socialAnalysis } = await this.tokenReportService.analyzeAllTickers(trendingTokenInfo);
+
+        // Step 3: Calculate position analysis
         const positionAnalysis = this.calculatePositionAnalysis(token, marketData);
 
+        // Step 4: Return the results
         return {
-            marketAnalysis: marketData,
-            socialAnalysis: socialData,
-            positionAnalysis
+            marketData,
+            socialData: socialAnalysis,
+            positionAnalysis,
         };
     }
 
