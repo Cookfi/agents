@@ -5,7 +5,7 @@ export const COOKIE_CONFIG = {
         SEARCH_TWEETS: "/search"
     },
     RATE_LIMIT: {
-        MAX_REQUESTS_PER_MINUTE: 60,
-        RETRY_AFTER: 60 * 1000 // 1 minute in milliseconds
+        MAX_REQUESTS_PER_MINUTE: 10,
+        RETRY_AFTER: 120 * 1000 // 1 minute in milliseconds
     }
 };
