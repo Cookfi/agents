@@ -6,6 +6,6 @@ export const EXECUTION_CONFIG = {
     TRADE: {
         MIN_BUY_AMOUNT: 0.001, // Minimum SOL amount to buy
         MAX_BUY_AMOUNT: 0.005, // Maximum SOL amount to buy
-        SLIPPAGE: 1.0 // Default slippage percentage
+        SLIPPAGE: 1.0 // 1% slippage
     }
 };

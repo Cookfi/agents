@@ -17,8 +17,8 @@ import type {
 const SOL_ADDRESS = "So11111111111111111111111111111111111111112";
 const MAX_RETRIES = 5;
 const RETRY_DELAY = 5000; // 5 seconds
-const INITIAL_SLIPPAGE = 0.03; // 3%
-const MAX_SLIPPAGE = 0.3; // 30%
+const INITIAL_SLIPPAGE = 1; // 1%
+const MAX_SLIPPAGE = 30; // 30%
 
 export class TradingService {
     private connection: Connection;
@@ -53,10 +53,20 @@ export class TradingService {
         let currentSlippage = params.slippage || INITIAL_SLIPPAGE;
         let lastError: Error | null = null;
 
-        while (retryCount < MAX_RETRIES && currentSlippage <= MAX_SLIPPAGE) {
+        // Check initial slippage is within bounds
+        if (currentSlippage > MAX_SLIPPAGE) {
+            const error = new Error(`Initial slippage ${currentSlippage.toFixed(1)}% exceeds maximum allowed ${MAX_SLIPPAGE}%`);
+            elizaLogger.error("Swap failed - slippage too high:", {
+                initialSlippage: `${currentSlippage.toFixed(1)}%`,
+                maxAllowed: `${MAX_SLIPPAGE}%`
+            });
+            throw error;
+        }
+
+        while (retryCount < MAX_RETRIES) {
             try {
                 elizaLogger.log(`Swap attempt ${retryCount + 1}/${MAX_RETRIES}`, {
-                    slippage: `${currentSlippage * 100}%`,
+                    slippage: `${currentSlippage}%`,
                     fromToken: params.fromToken,
                     toToken: params.toToken,
                     amount: params.amount
@@ -74,29 +84,32 @@ export class TradingService {
                 
                 elizaLogger.warn(`Swap failed, attempt ${retryCount}/${MAX_RETRIES}`, {
                     error: lastError.message,
-                    currentSlippage: `${currentSlippage * 100}%`,
-                    nextSlippage: `${Math.min(currentSlippage * 2, MAX_SLIPPAGE) * 100}%`
+                    currentSlippage: `${currentSlippage}%`,
+                    nextSlippage: `${Math.min(currentSlippage * 2, MAX_SLIPPAGE)}%`
                 });
                 
-                if (retryCount < MAX_RETRIES) {
-                    currentSlippage = Math.min(currentSlippage * 2, MAX_SLIPPAGE);
-                    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-                    continue;
+                // Calculate next slippage before checking if we should continue
+                const nextSlippage = Math.min(currentSlippage * 2, MAX_SLIPPAGE);
+                
+                // If we've hit max retries or would exceed max slippage, break
+                if (retryCount >= MAX_RETRIES || nextSlippage > MAX_SLIPPAGE) {
+                    break;
                 }
-                break;
+
+                currentSlippage = nextSlippage;
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
             }
         }
 
-        // Ensure we have meaningful error information
         const errorMessage = `Swap failed after ${retryCount} attempts. ` +
             `Last error: ${lastError?.message || 'Unknown error'}. ` +
-            `Final slippage tried: ${(currentSlippage * 100).toFixed(1)}%`;
+            `Final slippage tried: ${currentSlippage.toFixed(1)}%`;
 
         elizaLogger.error("All swap attempts failed:", {
             attempts: retryCount,
             maxSlippageReached: currentSlippage >= MAX_SLIPPAGE,
             lastError: lastError?.message || 'Unknown error',
-            finalSlippage: `${(currentSlippage * 100).toFixed(1)}%`
+            finalSlippage: `${currentSlippage.toFixed(1)}%`
         });
 
         throw new Error(errorMessage);
@@ -117,8 +130,8 @@ export class TradingService {
                 params.fromToken === "SOL" ? SOL_ADDRESS : params.fromToken
             ) : undefined;
 
-            // Convert slippage to basis points (1% = 100 basis points)
-            const slippageBps = params.slippage ? Math.floor(params.slippage * 100) : 300;
+            // Convert percentage to basis points (1% = 100 basis points)
+            const slippageBps = Math.floor(params.slippage * 100);
 
             elizaLogger.log("Executing swap:", {
                 outputMint: outputMint.toString(),
