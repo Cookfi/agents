@@ -8,7 +8,7 @@ import {
 } from "@elizaos/core";
 import { z } from "zod";
 import type { TokenResult } from "../../types/token";
-import type { TokenAnalysisResult } from "../tokenAnalysis";
+import type { TokenAnalysisResult } from "../tokenAnalysis/types";
 
 export interface TradeDecision {
     recommendation: "BUY" | "SELL" | "HOLD";
@@ -44,20 +44,15 @@ export class DecisionMakerService {
             }
 
             const hasPosition = token.balance && token.balance.amount > 0;
-
-            // Compose minimal state following Memory interface
-            const state = await this.runtime.composeState({
-                userId: this.runtime.agentId,
-                agentId: this.runtime.agentId,
-                roomId: stringToUuid(`trade-${token.symbol}`),
-                content: {
-                    text: token.symbol,
-                    type: "trade_analysis"
-                }
-            });
+            const positionInfo = hasPosition ? `
+Current Position Details:
+- ROI: ${analysis.positionAnalysis.roiNative.toFixed(2)}% in SOL
+- Unrealized P&L: ${analysis.positionAnalysis.unrealizedPnlNative.toFixed(4)} SOL
+- Current Price: ${analysis.positionAnalysis.currentPriceNative.toFixed(8)} SOL
+- Position Size: ${token.balance.amount} ${token.symbol}` : "";
 
             const template = `Analyze the following token data and provide a trading recommendation.
-${hasPosition ? "Note: We already own this token, so only SELL or HOLD is possible." : "Note: We don't own this token yet, so only BUY is possible."}
+${hasPosition ? `Note: We already own this token. Consider the current ROI of ${analysis.positionAnalysis.roiNative.toFixed(2)}% when deciding between SELL or HOLD.` : "Note: We don't own this token yet, so only BUY is possible."}
 
 Return the response as a JSON object with the following structure:
 {
@@ -69,14 +64,35 @@ Return the response as a JSON object with the following structure:
 }
 
 Analysis Data:
-${JSON.stringify({
-    token,
-    marketAnalysis: analysis.marketAnalysis[0],
-    socialAnalysis: analysis.socialAnalysis
-}, null, 2)}`;
+Token: ${token.symbol}${positionInfo}
+
+Market Analysis:
+${JSON.stringify(analysis.marketAnalysis[0], null, 2)}
+
+Social Analysis:
+- Tweet Count: ${analysis.socialAnalysis.length}
+- Recent Social Activity: ${JSON.stringify(analysis.socialAnalysis.slice(0, 3), null, 2)}
+
+Trading Guidelines:
+${hasPosition ? `
+- Consider taking profits if ROI > 20%
+- Consider cutting losses if ROI < -10%
+- Consider holding if momentum is positive despite negative ROI
+- Evaluate recent price action and social sentiment` : `
+- Look for strong upward price momentum
+- Consider social sentiment and trading volume
+- Evaluate market cap and liquidity`}`;
 
             const context = composeContext({
-                state,
+                state: await this.runtime.composeState({
+                    userId: this.runtime.agentId,
+                    agentId: this.runtime.agentId,
+                    roomId: stringToUuid(`trade-${token.symbol}`),
+                    content: {
+                        text: token.symbol,
+                        type: "trade_analysis"
+                    }
+                }),
                 template
             });
 

@@ -4,6 +4,8 @@ import { TokenResult } from "../../types/token";
 import { PORTFOLIO_CONFIG } from "./config";
 import type {
     PortfolioResponse,
+    SwapHistoryResponse,
+    SwapTransaction,
     TokenBalance
 } from "./types";
 
@@ -88,7 +90,75 @@ export class PortfolioService {
     }
 
     /**
-     * Get portfolio tokens with balance information
+     * Get all swap transactions for a specific token
+     * @param tokenAddress The address of the token to get swaps for
+     * @returns Promise containing array of swap transactions
+     */
+    async getAllSwaps(tokenAddress: string): Promise<SwapTransaction[]> {
+        try {
+            await this.initialize();
+
+            const response = await fetch(
+                `https://solana-gateway.moralis.io/account/${PORTFOLIO_CONFIG.NETWORK}/${this.walletAddress}/swaps?order=DESC&tokenAddress=${tokenAddress}`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'accept': 'application/json',
+                        'X-API-Key': process.env.COOKFI_MORALIS_API_KEY || ''
+                    }
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json() as SwapHistoryResponse;
+            return data.result;
+        } catch (error) {
+            elizaLogger.error("Failed to fetch swap history:", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Calculate cost basis for a token based on swap history
+     * @param tokenAddress The address of the token
+     * @returns The cost basis in native token (SOL)
+     */
+    async calculateCostBasis(tokenAddress: string): Promise<number> {
+        try {
+            const swaps = await this.getAllSwaps(tokenAddress);
+            
+            let netTokens = 0;  // Running total of tokens held
+            let totalCost = 0;  // Running total of SOL spent/received
+
+            for (const swap of swaps) {
+                if (swap.transactionType === 'buy') {
+                    if (swap.bought.address.toLowerCase() === tokenAddress.toLowerCase()) {
+                        // Buying tokens: Add to position
+                        netTokens += parseFloat(swap.bought.amount);
+                        totalCost += parseFloat(swap.sold.amount); // SOL spent
+                    }
+                } else if (swap.transactionType === 'sell') {
+                    if (swap.sold.address.toLowerCase() === tokenAddress.toLowerCase()) {
+                        // Selling tokens: Reduce position
+                        netTokens -= parseFloat(swap.sold.amount);
+                        totalCost -= parseFloat(swap.bought.amount); // SOL received
+                    }
+                }
+            }
+
+            // Return average cost basis in SOL for current holdings
+            return netTokens > 0 ? totalCost / netTokens : 0;
+        } catch (error) {
+            elizaLogger.error("Failed to calculate cost basis:", error);
+            return 0;
+        }
+    }
+
+    /**
+     * Get portfolio tokens with balance and cost basis information
      * @returns Promise containing array of token information
      */
     async getTokens(): Promise<TokenResult[]> {
@@ -99,18 +169,22 @@ export class PortfolioService {
                 return [];
             }
 
-            const tokens = portfolio.tokens.map((token) => ({
-                symbol: token.symbol,
-                name: token.name,
-                address: token.mint,
-                chainId: "solana",
-                balance: {
-                    amount: parseFloat(token.amount),
-                    usdValue: 0, // Note: Moralis doesn't provide USD value directly
-                },
+            // Process tokens in parallel for better performance
+            const tokens = await Promise.all(portfolio.tokens.map(async (token) => {
+                const costBasisNative = await this.calculateCostBasis(token.mint);
+                
+                return {
+                    symbol: token.symbol,
+                    name: token.name,
+                    address: token.mint,
+                    chainId: "solana",
+                    balance: {
+                        amount: parseFloat(token.amount),
+                        usdValue: 0,
+                        costBasisNative
+                    },
+                };
             }));
-
-            console.log("tokens", tokens);
 
             return tokens;
         } catch (error) {
