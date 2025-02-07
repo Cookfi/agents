@@ -2,11 +2,16 @@ import { elizaLogger } from '@elizaos/core';
 import axios from 'axios';
 import type { TokenResult } from '../../types/token';
 import { DEXSCREENER_CONFIG } from './config';
+
+
 import type {
     BoostedToken,
     SearchTokensParams,
-    TokenPair
+    TokenPair,
+    TokenResponse
 } from './types';
+import { calculateTokenScore } from './types';
+import { formatNumber } from './formatters';
 
 export class DexScreenerService {
     private baseUrl: string;
@@ -47,6 +52,63 @@ export class DexScreenerService {
             return [];
         }
     }
+
+    async getTrendingTokenInfo(tokenAddress: string, chainId: string = 'solana', tokenInfo?: TokenPair[]): Promise<TokenResponse> {
+        try {
+            // If tokenInfo is not provided, fetch it
+            if (!tokenInfo) {
+                tokenInfo = await this.getTokenInfo(tokenAddress, chainId);
+            }
+
+            const response = await axios.get<DexScreenerResponse>(
+                `${this.baseUrl}/latest/dex/tokens/${tokenAddress}`
+            );
+
+            if (!response.data.pairs || response.data.pairs.length === 0) {
+                return {
+                    tickers: [],
+                    marketData: [],
+                    addresses: [],
+                    tokenNames: [],
+                    scores: []
+                };
+            }
+
+            const pairs = response.data.pairs;
+            const mainPair = pairs[0]; // Get the main/most liquid pair
+
+            // Use Set to remove duplicates and convert back to array
+            const uniqueTokenNames = [...new Set(tokenInfo.map(token => token.baseToken.name))];
+
+            return {
+                tickers: [`$${mainPair.baseToken.symbol}`],
+                marketData: [
+                    `${mainPair.baseToken.symbol} | $${mainPair.priceUsd} | Vol: $${
+                        formatNumber(mainPair.volume?.h24)
+                    } | Liq: $${formatNumber(mainPair.liquidity?.usd)} | ${
+                        mainPair.dexId
+                    } | ${mainPair.chainId}`
+                ],
+                addresses: [tokenAddress],
+                tokenNames: uniqueTokenNames, // Use the deduplicated array
+                scores: [calculateTokenScore(mainPair)]
+            };
+
+        } catch (error) {
+            elizaLogger.error(`Error fetching token data for ${tokenAddress}:`, error);
+            return {
+                tickers: [],
+                marketData: [],
+                addresses: [],
+                tokenNames: [],
+                scores: []
+            };
+        }
+    }
 }
 
-export default DexScreenerService; 
+interface DexScreenerResponse {
+    pairs: TokenPair[];
+}
+
+export default DexScreenerService;
