@@ -23,7 +23,7 @@ export class TradingWorkflow {
 
     constructor(runtime: IAgentRuntime) {
         this.runtime = runtime;
-        this.isDryRun = process.env.COOKFI_BIRDEYE_DRY_RUN === 'true';
+        this.isDryRun = process.env.COOKFI_DRY_RUN === 'true';
         this.topWalletsService = TopWalletsService.getInstance();
         this.portfolioService = new PortfolioService();
         this.tokenAnalysisService = new TokenAnalysisService();
@@ -32,7 +32,7 @@ export class TradingWorkflow {
             rpcUrl: process.env.SOLANA_RPC_URL
         });
         this.executionService = new ExecutionService({
-            isDryRun: process.env.COOKFI_BIRDEYE_DRY_RUN === 'true',
+            isDryRun: process.env.COOKFI_DRY_RUN === 'true',
             rpcUrl: process.env.SOLANA_RPC_URL
         });
     }

@@ -7,15 +7,16 @@ An automated DEFAI plugin for Solana with integrated autonomous trading based on
 - Automated trading on Solana blockchain
   - Executed with SolanaAgentKit
   - Decision based on:
-    - Real-time market data analysis using DexScreener / Birdeye
+    - Real-time market data analysis using Moralis
     - Social data analysis using Cookie.fun
+    - Top wallets trading activity analysis using TopWallets.ai
   - With configurable strategy 
     - Safety limits and risk management
     - Strategy setup (min marketcap, min/max invest by day/trade)
     - Rate limiting and cache management
-- Automated defi strategy on Solana blockchain exected with SolanaAgentKit
+- Automated defi strategy on Solana blockchain executed with SolanaAgentKit
 - Automated social integration
-  - Twitter tweets about his trades, placements..
+  - Twitter tweets about trades and placements
 - Performance tracking and trade history
 
 ## Installation
@@ -28,12 +29,25 @@ npm install @elizaos/plugin-cookfi
 
 The following environment variables need to be configured:
 
-- `WALLET_PRIVATE_KEY`: Your Solana wallet private key
-- `WALLET_PUBLIC_KEY`: Your Solana wallet public address
-- `SOLANA_RPC_URL`: Solana RPC endpoint (defaults to mainnet)
-- `BIRDEYE_API_KEY`: API key for Birdeye data provider
-- `TWITTER_ENABLED`: Enable/disable Twitter notifications
-- `TWITTER_USERNAME`: Twitter username for notifications
+```bash
+# Cookfi Plugin Configuration
+
+# API Keys
+COOKFI_COOKIE_API_KEY=           # API key for Cookie.fun social data
+COOKFI_MORALIS_API_KEY=          # API key for Moralis market data
+COOKFI_TOPWALLETS_API_KEY=       # API key for TopWallets.ai trading analysis
+
+# TopWallets Configuration
+COOKFI_TOPWALLETS_API_URL=       # TopWallets API URL (defaults to https://www.topwallets.ai)
+
+# Solana Configuration
+COOKFI_SOLANA_PRIVATE_KEY=       # Your Solana wallet private key
+COOKFI_SOLANA_PUBLIC_KEY=        # Your Solana wallet public address
+COOKFI_SOLANA_RPC_URL=           # Solana RPC endpoint (defaults to https://api.mainnet-beta.solana.com)
+
+# Execution Mode
+COOKFI_DRY_RUN=true             # Set to true for testing without real transactions
+```
 
 ## Usage
 
@@ -85,7 +99,15 @@ Default trading parameters can be adjusted in the configuration:
 
 The plugin integrates with multiple APIs:
 
-- **DexScreener**: Real-time trading data and market analysis
-- **Birdeye API**: Market data and token security information
-- **Cookie.fun**: Social data
+- **TopWallets.ai**: Real-time analysis of top 100 traders and KOLs trading activity
+  - Tracks tokens traded in the last hour
+  - Provides insights from top performing wallets
+  - Helps identify emerging trading opportunities
+- **Moralis**: Market data and token information
+  - Price feeds and market analysis
+  - Token metadata and contract information
+  - Trading volume and liquidity data
+- **Cookie.fun**: Social data and sentiment analysis
 - **Solana agent kit**: Solana onchain execution
+
+The TopWallets integration specifically monitors the trading activity of the top 100 traders and key opinion leaders (KOLs) on Solana, providing real-time insights into which tokens are being actively traded by successful traders. This data is used to identify potential trading opportunities before they become widely known.
