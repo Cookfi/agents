@@ -83,6 +83,7 @@ Trading Guidelines:
 ${hasPosition ? `
 - Consider taking profits (SELL) if ROI > 100%
 - Consider cutting losses (SELL) if ROI < -50%
+- You must SELL everything if the price is down > 90%
 - Consider holding (HOLD) if momentum is positive despite negative ROI
 - Evaluate recent price action and social sentiment` : `
 - Look for strong upward price momentum
