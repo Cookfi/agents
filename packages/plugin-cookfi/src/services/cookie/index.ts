@@ -6,7 +6,20 @@ import { COOKIE_CONFIG } from './config';
 import { formatCookieData } from './formatters';
 import type { CookieAPIResponse, EnhancedTweet, SearchTweetsParams } from './types';
 
+interface CacheEntry {
+    data: any;
+    timestamp: number;
+}
+
+interface TweetCache {
+    [query: string]: CacheEntry;
+}
+
 export class CookieService {
+    private static instance: CookieService;
+    private client: any;
+    private tweetCache: TweetCache = {};
+    private readonly CACHE_TTL = 20 * 60 * 1000; // 20 minutes in milliseconds
     private apiKey: string;
     private baseUrl: string;
     private lastRequestTime: number = 0;
@@ -28,28 +41,78 @@ export class CookieService {
         this.lastRequestTime = Date.now();
     }
 
-    async searchTweets(params: SearchTweetsParams): Promise<EnhancedTweet[]> {
-        await this.checkRateLimit();
-        const from = new Date();
-        from.setDate(from.getDate() - 3);
-        const to = new Date();
+    private isCacheValid(entry: CacheEntry): boolean {
+        const now = Date.now();
+        return (now - entry.timestamp) < this.CACHE_TTL;
+    }
 
-        const response = await axios.get<CookieAPIResponse>(
-            `${this.baseUrl}${COOKIE_CONFIG.ENDPOINTS.SEARCH_TWEETS}/${encodeURIComponent(params.query)}`,
-            {
-                params: { 
-                    from: from.toISOString(), 
-                    to: to.toISOString(),
-                    max_results: params.max_results || COOKIE_CONFIG.DEFAULT_MAX_RESULTS
-                },
-                headers: {
-                    'x-api-key': this.apiKey,
-                    'Content-Type': 'application/json'
-                }
+    private clearExpiredCache(): void {
+        const now = Date.now();
+        Object.keys(this.tweetCache).forEach(key => {
+            if ((now - this.tweetCache[key].timestamp) >= this.CACHE_TTL) {
+                delete this.tweetCache[key];
             }
-        );
+        });
+    }
 
-        return formatCookieData(response.data);
+    async searchTweets(params: SearchTweetsParams): Promise<EnhancedTweet[]> {
+        try {
+            // Clear expired cache entries periodically
+            this.clearExpiredCache();
+
+            // Create cache key from params
+            const cacheKey = JSON.stringify({
+                query: params.query,
+                max_results: params.max_results || COOKIE_CONFIG.DEFAULT_MAX_RESULTS
+            });
+
+            // Check cache first
+            const cachedResult = this.tweetCache[cacheKey];
+            if (cachedResult && this.isCacheValid(cachedResult)) {
+                console.log(`Using cached results for query: ${params.query}`);
+                return cachedResult.data;
+            }
+
+            // If not in cache or expired, make the API call
+            await this.checkRateLimit();
+            
+            const from = new Date();
+            from.setDate(from.getDate() - 3);
+            const to = new Date();
+
+            const response = await axios.get<CookieAPIResponse>(
+                `${this.baseUrl}${COOKIE_CONFIG.ENDPOINTS.SEARCH_TWEETS}/${encodeURIComponent(params.query)}`,
+                {
+                    params: { 
+                        from: from.toISOString(), 
+                        to: to.toISOString(),
+                        max_results: params.max_results || COOKIE_CONFIG.DEFAULT_MAX_RESULTS
+                    },
+                    headers: {
+                        'x-api-key': this.apiKey,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            const formattedData = formatCookieData(response.data);
+
+            // Cache the formatted results
+            this.tweetCache[cacheKey] = {
+                data: formattedData,
+                timestamp: Date.now()
+            };
+
+            console.log(`Cached new results for query: ${params.query}`);
+            return formattedData;
+
+        } catch (error) {
+            console.error('Error searching tweets:', {
+                error: error instanceof Error ? error.message : String(error),
+                query: params.query
+            });
+            throw error;
+        }
     }
 
     private async processBatch(queries: string[], maxResults: number): Promise<EnhancedTweet[]> {
