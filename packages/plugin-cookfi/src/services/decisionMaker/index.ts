@@ -81,8 +81,8 @@ Social Analysis:
 
 Trading Guidelines:
 ${hasPosition ? `
-- Consider taking profits (SELL) if ROI > 50%
-- Consider cutting losses (SELL) if ROI < -30%
+- Consider taking profits (SELL) if ROI > 100%
+- Consider cutting losses (SELL) if ROI < -50%
 - Consider holding (HOLD) if momentum is positive despite negative ROI
 - Evaluate recent price action and social sentiment` : `
 - Look for strong upward price momentum

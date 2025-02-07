@@ -57,7 +57,7 @@ export class TradingService {
             ) : undefined;
 
             // Convert slippage to basis points (1% = 100 basis points)
-            const slippageBps = params.slippage ? Math.floor(params.slippage * 100) : 100;
+            const slippageBps = params.slippage ? Math.floor(params.slippage * 100) : 300;
 
             elizaLogger.log("Executing swap:", {
                 outputMint: outputMint.toString(),
@@ -82,6 +82,7 @@ export class TradingService {
                     toAmount: params.amount
                 };
             } catch (error) {
+                console.log(error);
                 if (error instanceof SendTransactionError) {
                     const logs = error.logs;
                     elizaLogger.error("Swap transaction failed. Full logs:", logs);
@@ -97,6 +98,7 @@ export class TradingService {
                 throw error;
             }
         } catch (error) {
+            console.log(error);
             elizaLogger.error("Swap failed:", {
                 error,
                 message: error instanceof Error ? error.message : "Unknown error",

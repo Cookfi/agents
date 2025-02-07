@@ -65,11 +65,16 @@ export class ExecutionService {
 
                 case "SELL":
                     if (token.balance) {
-                        await this.tradingService.swap({
+                        console.log({
                             fromToken: token.address,
                             toToken: "SOL",
                             amount: token.balance.amount,
                             slippage: EXECUTION_CONFIG.TRADE.SLIPPAGE
+                        })
+                        await this.tradingService.swap({
+                            fromToken: token.address,
+                            toToken: "SOL",
+                            amount: token.balance.amount,
                         });
                         elizaLogger.log(`Executed SELL for ${token.symbol}`);
                         return { success: true, action: "SELL", amount: token.balance.amount };

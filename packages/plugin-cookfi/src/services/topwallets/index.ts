@@ -32,7 +32,7 @@ export class TopWalletsService {
     }
 
     /**
-     * Get the top wallets token traded in the last hour on Solana by top 100 traders + top kols
+     * Get the top 3 tokens traded in the last hour on Solana by top 100 traders + top kols
      * @returns TokenResult[]
      */
     async getTopWalletsToken(): Promise<TokenResult[]> {
@@ -48,7 +48,10 @@ export class TopWalletsService {
                 throw new Error(response.data.message);
             }
 
-            return response.data.data.tokens.map(token => ({
+            // Take only the first 3 tokens
+            const topTokens = response.data.data.tokens.slice(0, 3);
+
+            return topTokens.map(token => ({
                 symbol: token.symbol,
                 name: token.name,
                 address: token.address,

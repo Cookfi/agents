@@ -11,7 +11,7 @@ export class TradingWorkflow {
     private runtime: IAgentRuntime;
     private isProcessing = false;
     private stopProcessing = false;
-    private readonly ANALYSIS_INTERVAL = 5 * 60 * 1000; // 5 minutes
+    private readonly ANALYSIS_INTERVAL = 6 * 60 * 1000; // 6 minutes
     private isDryRun: boolean;
     
     private topWalletsService: TopWalletsService;
