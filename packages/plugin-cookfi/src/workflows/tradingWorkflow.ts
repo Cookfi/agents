@@ -137,7 +137,8 @@ export class TradingWorkflow {
                 );
                 
             } catch (error) {
-                elizaLogger.error("Error in trading analysis loop:", error);
+                elizaLogger.error("Error in trading analysis loop");
+                console.error(error);
                 await new Promise(resolve => setTimeout(resolve, 30000));
             } finally {
                 this.isProcessing = false;
