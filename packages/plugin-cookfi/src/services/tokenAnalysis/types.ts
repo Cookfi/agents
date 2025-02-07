@@ -13,4 +13,5 @@ export interface TokenAnalysisResult {
     marketAnalysis: TokenPair[];
     socialAnalysis: EnhancedTweet[];
     positionAnalysis: PositionAnalysis;
+   
 } 

@@ -3,8 +3,10 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 import { COOKIE_CONFIG } from './config';
-import { formatCookieData } from './formatters';
-import type { CookieAPIResponse, EnhancedTweet, SearchTweetsParams } from './types';
+import { formatCookieData, formatTokenAnalysis, formatTokenQueries, getEmptyTokenAnalysis } from './formatters';
+import { calculateTweetScore } from './scoring';
+import type { CookieAPIResponse, EnhancedTweet, SearchTweetsParams, TokenAnalysis } from './types';
+import { elizaLogger } from '@elizaos/core';
 
 export class CookieService {
     private apiKey: string;
@@ -84,6 +86,20 @@ export class CookieService {
         }
         
         return allTweets;
+    }
+
+    async analyzeToken(tokenSymbol: string, tokenName: string): Promise<TokenAnalysis> {
+        try {
+            const queries = formatTokenQueries(tokenSymbol, tokenName);
+            const allTweets = await this.searchMultipleQueries(queries, 5);
+            elizaLogger.log(`Found total ${allTweets.length} tweets for ${tokenSymbol}`);
+
+            return formatTokenAnalysis(tokenSymbol, tokenName, allTweets);
+
+        } catch (error) {
+            elizaLogger.error(`Error analyzing token ${tokenSymbol}:`, error);
+            return getEmptyTokenAnalysis(tokenSymbol);
+        }
     }
 }
 

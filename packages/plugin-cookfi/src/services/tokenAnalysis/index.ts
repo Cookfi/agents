@@ -4,6 +4,8 @@ import { DexScreenerService } from "../dexscreener";
 import type { TokenPair } from "../dexscreener/types";
 import type { PositionAnalysis, TokenAnalysisResult } from "./types";
 
+
+
 export class TokenAnalysisService {
     private cookieService: CookieService;
     private dexScreenerService: DexScreenerService;
@@ -17,10 +19,7 @@ export class TokenAnalysisService {
         // Get market and social data in parallel
         const [marketData, socialData] = await Promise.all([
             this.dexScreenerService.getTokenInfo(token.address, token.chainId),
-            this.cookieService.searchTweets({
-                query: `${token.symbol} $${token.symbol}`,
-                max_results: 10
-            })
+            this.cookieService.analyzeToken(token.symbol, token.name)
         ]);
 
         const positionAnalysis = this.calculatePositionAnalysis(token, marketData);

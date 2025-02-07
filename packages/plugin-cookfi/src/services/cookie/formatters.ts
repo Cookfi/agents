@@ -1,5 +1,5 @@
 import { calculateTweetScore } from "./scoring";
-import { CookieAPIResponse, EnhancedTweet } from "./types";
+import { CookieAPIResponse, EnhancedTweet, TokenAnalysis } from "./types";
 
 const formatDate = (dateStr: string): string => {
     const tweetDate = new Date(dateStr);
@@ -38,4 +38,45 @@ export function formatCookieData(response: CookieAPIResponse): EnhancedTweet[] {
         formattedEngagement: formatEngagement(tweet as EnhancedTweet),
         formattedText: tweet.text.replace(/\n/g, " ")
     }));
+}
+
+export function formatTokenQueries(tokenSymbol: string, tokenName: string): string[] {
+    return [
+        `$${tokenSymbol}`,
+        `$${tokenSymbol} token`,
+        `"${tokenName}"`
+    ];
+}
+
+export function formatTokenAnalysis(
+    tokenSymbol: string,
+    tokenName: string, 
+    tweets: EnhancedTweet[]
+): TokenAnalysis {
+    // Filter tweets that mention the token symbol or name
+    const filteredTweets = tweets.filter(tweet => 
+        tweet.formattedText.includes(`$${tokenSymbol}`) ||
+        tweet.formattedText.toLowerCase().includes(tokenName.toLowerCase())
+    );
+
+    // Calculate total engagement score
+    const totalScore = filteredTweets.reduce((sum, tweet) => sum + tweet.score, 0);
+
+    return {
+        symbol: tokenSymbol,
+        tweets: filteredTweets,
+        totalEngagementScore: totalScore,
+        tweetCount: filteredTweets.length,
+        averageScore: filteredTweets.length > 0 ? totalScore / filteredTweets.length : 0
+    };
+}
+
+export function getEmptyTokenAnalysis(tokenSymbol: string): TokenAnalysis {
+    return {
+        symbol: tokenSymbol,
+        tweets: [],
+        totalEngagementScore: 0,
+        tweetCount: 0,
+        averageScore: 0
+    };
 }

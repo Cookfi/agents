@@ -55,6 +55,7 @@ export interface TokenPair {
     url: string;
     pairAddress: string;
     baseToken: TokenInfo;
+    score: number;
     quoteToken: TokenInfo;
     priceNative: string;
     priceUsd: string;
