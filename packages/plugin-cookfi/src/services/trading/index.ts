@@ -1,7 +1,8 @@
-import { elizaLogger } from "@elizaos/core";
+import { elizaLogger, type IAgentRuntime } from "@elizaos/core";
 import { Connection, PublicKey } from "@solana/web3.js";
 import { SolanaAgentKit } from "solana-agent-kit";
 import { TRADING_CONFIG } from "./config";
+import LitService from "../lit";
 import type {
     LendParams,
     LendResponse,
@@ -14,21 +15,64 @@ import type {
     TransferResponse,
 } from "./types";
 
-export class TradingService {
+export class SolanaAgentKitService {
     private connection: Connection;
-    private agent: SolanaAgentKit;
+    private agent: SolanaAgentKit | null = null;
+    private litService: LitService;
+    private runtime: IAgentRuntime;
 
-    constructor(config: TradingServiceConfig) {
+    constructor(config: TradingServiceConfig, runtime: IAgentRuntime) {
         this.connection = new Connection(
             config.rpcUrl || TRADING_CONFIG.DEFAULT_RPC_URL
         );
+        this.runtime = runtime;
+        this.litService = new LitService(runtime);
+    }
 
-        // Initialize SolanaAgentKit
-        this.agent = new SolanaAgentKit(
-            process.env.SOLANA_PRIVATE_KEY!,
-            config.rpcUrl || TRADING_CONFIG.DEFAULT_RPC_URL,
-            { OPENAI_API_KEY: process.env.OPENAI_API_KEY! }
-        );
+    private async initializeAgent() {
+        if (this.agent) return;
+
+        try {
+            await this.litService.connect();
+
+            // Retrieve the encrypted private key & decryption metadata
+            const encryptedKeyBase64 = this.runtime.getSetting(
+                "ENCRYPTED_PRIVATE_KEY"
+            );
+            const accessControlConditions = JSON.parse(
+                this.runtime.getSetting("ACCESS_CONTROL_CONDITIONS")
+            );
+            const dataToEncryptHash = this.runtime.getSetting(
+                "DATA_TO_ENCRYPT_HASH"
+            );
+
+            if (
+                !encryptedKeyBase64 ||
+                !accessControlConditions ||
+                !dataToEncryptHash
+            ) {
+                throw new Error(
+                    "Missing encryption metadata in runtime settings."
+                );
+            }
+
+            // Decrypt the private key
+            const privateKey = await this.litService.decryptPrivateKey(
+                encryptedKeyBase64, // Pass as Base64 string (correct format)
+                accessControlConditions,
+                dataToEncryptHash
+            );
+
+            // Initialize SolanaAgentKit with decrypted key
+            this.agent = new SolanaAgentKit(
+                privateKey,
+                this.runtime.getSetting("SOLANA_RPC_URL"),
+                { OPENAI_API_KEY: this.runtime.getSetting("OPENAI_API_KEY") }
+            );
+        } catch (error) {
+            elizaLogger.error("Failed to initialize agent:", error);
+            throw error;
+        }
     }
 
     /**
@@ -38,13 +82,16 @@ export class TradingService {
      */
     async swap(params: SwapParams): Promise<SwapResponse> {
         try {
+            await this.initializeAgent();
+            if (!this.agent) throw new Error("Agent not initialized");
+
             const outputMint = new PublicKey(params.toToken);
             const inputMint = params.fromToken
                 ? new PublicKey(params.fromToken)
                 : undefined;
             const slippageBps = params.slippage
                 ? params.slippage * 100
-                : undefined; // Convert percentage to basis points
+                : undefined;
 
             const signature = await this.agent.trade(
                 outputMint,
@@ -53,12 +100,10 @@ export class TradingService {
                 slippageBps
             );
 
-            // For simplicity, we're returning estimated amounts
-            // In a production environment, you'd want to fetch the actual amounts from the transaction
             return {
                 signature,
                 fromAmount: params.amount,
-                toAmount: params.amount, // This should be calculated based on actual exchange rate
+                toAmount: params.amount, // Adjust if needed
             };
         } catch (error) {
             elizaLogger.error("Swap failed:", error);
@@ -73,6 +118,9 @@ export class TradingService {
      */
     async transfer(params: TransferParams): Promise<TransferResponse> {
         try {
+            await this.initializeAgent();
+            if (!this.agent) throw new Error("Agent not initialized");
+
             const recipient = new PublicKey(params.recipient);
             const tokenMint =
                 params.token !== "SOL"
@@ -85,10 +133,7 @@ export class TradingService {
                 tokenMint
             );
 
-            return {
-                signature,
-                amount: params.amount,
-            };
+            return { signature, amount: params.amount };
         } catch (error) {
             elizaLogger.error("Transfer failed:", error);
             throw error;
@@ -102,7 +147,9 @@ export class TradingService {
      */
     async lend(params: LendParams): Promise<LendResponse> {
         try {
-            // Implementation here
+            await this.initializeAgent();
+            if (!this.agent) throw new Error("Agent not initialized");
+
             throw new Error(
                 "Lending functionality not implemented in Solana Agent Kit"
             );
@@ -119,16 +166,16 @@ export class TradingService {
      */
     async stake(params: StakeParams): Promise<StakeResponse> {
         try {
+            await this.initializeAgent();
+            if (!this.agent) throw new Error("Agent not initialized");
+
             if (params.amount < TRADING_CONFIG.STAKE.MINIMUM_AMOUNT) {
                 throw new Error(
                     `Minimum staking amount is ${TRADING_CONFIG.STAKE.MINIMUM_AMOUNT} SOL`
                 );
             }
 
-            // Use the agent's stake method
             const signature = await this.agent.stake(params.amount);
-
-            // Get jupSOL balance after staking
             const jupsolMint = new PublicKey(TRADING_CONFIG.TOKENS.JUPSOL);
             const jupsolBalance = await this.agent.getBalance(jupsolMint);
 
@@ -144,4 +191,4 @@ export class TradingService {
     }
 }
 
-export default TradingService;
+export default SolanaAgentKitService;
