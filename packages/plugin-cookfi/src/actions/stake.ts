@@ -5,8 +5,8 @@ import {
     type Memory,
     type State,
 } from "@elizaos/core";
-import TradingService from "../services/trading";
-import { TRADING_CONFIG } from "../services/trading/config";
+import TradingService from "../services/trading/solana";
+import { TRADING_CONFIG } from "../services/trading/solana/config";
 
 interface StakeData {
     amount: number;

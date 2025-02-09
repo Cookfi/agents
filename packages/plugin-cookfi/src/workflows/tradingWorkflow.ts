@@ -1,10 +1,11 @@
 import { elizaLogger, type IAgentRuntime } from "@elizaos/core";
 import { DecisionMakerService } from "../services/decisionMaker";
 import { ExecutionService } from "../services/execution";
+import { MoralisService } from "../services/moralis";
 import { PortfolioService } from "../services/portfolio";
 import { TokenAnalysisService } from "../services/tokenAnalysis";
 import { TopWalletsService } from "../services/topwallets";
-import { TradingService } from "../services/trading";
+import { TradingService } from "../services/trading/solana";
 import { TwitterService } from "../services/twitter";
 import { deduplicateTokens } from "../utils/token";
 
@@ -22,6 +23,7 @@ export class TradingWorkflow {
     private tradingService: TradingService;
     private executionService: ExecutionService;
     private twitterService?: TwitterService;
+    private moralisService: MoralisService;
 
     constructor(runtime: IAgentRuntime) {
         this.runtime = runtime;
@@ -37,6 +39,7 @@ export class TradingWorkflow {
             isDryRun: process.env.COOKFI_DRY_RUN === 'true',
             rpcUrl: process.env.SOLANA_RPC_URL
         });
+        this.moralisService = new MoralisService();
 
         // Initialize Twitter service
         TwitterService.getInstance(runtime).then(service => {
@@ -65,12 +68,15 @@ export class TradingWorkflow {
                 this.isProcessing = true;
                 
                 // Fetch trending tokens and portfolio data in parallel
-                const [trendingTokens, portfolioTokens] = await Promise.all([
+                const [trendingTokens, portfolioTokens, experiencedBuyerTokens] = await Promise.all([
                     this.topWalletsService.getTopWalletsToken(),
-                    this.portfolioService.getTokens()
+                    this.portfolioService.getTokens(),
+                    this.moralisService.getExperiencedBuyerTokens()
                 ]);
 
-                console.log({portfolioTokens});
+                console.log({experiencedBuyerTokens});
+
+                return;
 
                 // Combine and deduplicate tokens
                 const tokensToAnalyze = deduplicateTokens([

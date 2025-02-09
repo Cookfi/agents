@@ -1,7 +1,6 @@
 import { elizaLogger } from "@elizaos/core";
 import { Connection, PublicKey, SendTransactionError } from "@solana/web3.js";
 import { SolanaAgentKit } from "solana-agent-kit";
-import { TRADING_CONFIG } from "./solana/config";
 import type {
     LendParams,
     LendResponse,
@@ -12,7 +11,8 @@ import type {
     TradingServiceConfig,
     TransferParams,
     TransferResponse,
-} from "./types";
+} from "../types";
+import { TRADING_CONFIG } from "./config";
 
 const SOL_ADDRESS = "So11111111111111111111111111111111111111112";
 const MAX_RETRIES = 5;

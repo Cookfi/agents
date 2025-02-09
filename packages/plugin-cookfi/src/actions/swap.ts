@@ -5,7 +5,7 @@ import {
     type Memory,
     type State,
 } from "@elizaos/core";
-import TradingService from "../services/trading";
+import TradingService from "../services/trading/solana";
 
 interface SwapData {
     fromToken: string;

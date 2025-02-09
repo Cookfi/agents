@@ -2,7 +2,7 @@ import { elizaLogger } from "@elizaos/core";
 import type { TokenResult } from "../../types/token";
 import type { TradeDecision } from "../decisionMaker";
 import type { TokenPair } from "../dexscreener/types";
-import { TradingService } from "../trading";
+import { TradingService } from "../trading/solana";
 import { EXECUTION_CONFIG } from "./config";
 import type { ExecutionResult, ExecutionServiceConfig } from "./types";
 
