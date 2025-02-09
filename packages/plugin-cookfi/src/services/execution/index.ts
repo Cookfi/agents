@@ -2,19 +2,20 @@ import { elizaLogger } from "@elizaos/core";
 import type { TokenResult } from "../../types/token";
 import type { TradeDecision } from "../decisionMaker";
 import type { TokenPair } from "../dexscreener/types";
-import { TradingService } from "../trading/solana";
+import { BaseTradingService } from "../trading/base";
+import SolanaTradingService from "../trading/solana";
 import { EXECUTION_CONFIG } from "./config";
 import type { ExecutionResult, ExecutionServiceConfig } from "./types";
 
 export class ExecutionService {
     private isDryRun: boolean;
-    private tradingService: TradingService;
+    private solanaTradingService: SolanaTradingService;
+    private baseTradingService: BaseTradingService;
 
     constructor(config: ExecutionServiceConfig = {}) {
         this.isDryRun = config.isDryRun || false;
-        this.tradingService = new TradingService({
-            rpcUrl: config.rpcUrl
-        });
+        this.solanaTradingService = new SolanaTradingService();
+        this.baseTradingService = new BaseTradingService();
     }
 
     private calculateBuyAmount(confidence: number): number {
@@ -26,6 +27,17 @@ export class ExecutionService {
         const amount = MIN_BUY_AMOUNT + (MAX_BUY_AMOUNT - MIN_BUY_AMOUNT) * confidenceScale;
 
         return Math.min(MAX_BUY_AMOUNT, Math.max(MIN_BUY_AMOUNT, amount));
+    }
+
+    private getTradingService(chain: string) {
+        switch (chain.toLowerCase()) {
+            case 'solana':
+                return this.solanaTradingService;
+            case 'base':
+                return this.baseTradingService;
+            default:
+                throw new Error(`Unsupported chain: ${chain}`);
+        }
     }
 
     async executeDecision(
@@ -59,11 +71,13 @@ export class ExecutionService {
         }
 
         try {
+            const tradingService = this.getTradingService(token.chainId);
+            
             switch (decision.recommendation) {
                 case "BUY": {
                     const amount = this.calculateBuyAmount(decision.confidence);
-                    const result = await this.tradingService.swapWithRetry({
-                        fromToken: "SOL",
+                    const result = await tradingService.swapWithRetry({
+                        fromToken: token.chainId === 'solana' ? "SOL" : "ETH",
                         toToken: token.address,
                         amount,
                         slippage: EXECUTION_CONFIG.TRADE.SLIPPAGE
@@ -82,7 +96,7 @@ export class ExecutionService {
 
                 case "SELL": {
                     if (token.balance) {
-                        const result = await this.tradingService.swapWithRetry({
+                        const result = await tradingService.swapWithRetry({
                             fromToken: token.address,
                             toToken: "SOL",
                             amount: token.balance.amount,

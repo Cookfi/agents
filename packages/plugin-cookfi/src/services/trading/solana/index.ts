@@ -1,6 +1,7 @@
 import { elizaLogger } from "@elizaos/core";
 import { Connection, PublicKey, SendTransactionError } from "@solana/web3.js";
 import { SolanaAgentKit } from "solana-agent-kit";
+import { TRADING_CONFIG } from "./config";
 import type {
     LendParams,
     LendResponse,
@@ -8,11 +9,9 @@ import type {
     StakeResponse,
     SwapParams,
     SwapResponse,
-    TradingServiceConfig,
     TransferParams,
-    TransferResponse,
-} from "../types";
-import { TRADING_CONFIG } from "./config";
+    TransferResponse
+} from "./types";
 
 const SOL_ADDRESS = "So11111111111111111111111111111111111111112";
 const MAX_RETRIES = 5;
@@ -20,11 +19,11 @@ const RETRY_DELAY = 5000; // 5 seconds
 const INITIAL_SLIPPAGE = 1; // 1%
 const MAX_SLIPPAGE = 30; // 30%
 
-export class TradingService {
+export class SolanaTradingService {
     private connection: Connection;
     private agent: SolanaAgentKit;
 
-    constructor(config: TradingServiceConfig) {
+    constructor() {
         const privateKeyString = process.env.COOKFI_SOLANA_PRIVATE_KEY;
         if (!privateKeyString) {
             throw new Error("COOKFI_SOLANA_PRIVATE_KEY is required");
@@ -261,4 +260,4 @@ export class TradingService {
     }
 }
 
-export default TradingService;
+export default SolanaTradingService;

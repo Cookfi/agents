@@ -1,7 +1,3 @@
-export interface TradingServiceConfig {
-    rpcUrl?: string;
-}
-
 export interface SwapParams {
     fromToken: string;
     toToken: string;

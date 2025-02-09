@@ -5,6 +5,7 @@
     "type": "module",
     "types": "dist/index.d.ts",
     "dependencies": {
+        "@coinbase/coinbase-sdk": "^0.1.0",
         "agent-twitter-client": "0.0.18",
         "@elizaos/core": "workspace:*",
         "@solana/web3.js": "npm:@solana/web3.js@1.95.8",
