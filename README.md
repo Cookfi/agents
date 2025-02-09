@@ -1,6 +1,10 @@
 # CookFi AI
 
-A degen cooking up alpha and gains.
+An autonomous degen ai traders cooking up alpha and gains on Solana
+
+## The code: 
+
+- All the code is managed by our custom plugin here: https://github.com/Cookfi/agents/tree/develop/packages/plugin-cookfi
 
 ## Key Goals:
 
