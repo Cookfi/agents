@@ -10,6 +10,7 @@ export class TwitterService {
     private config: TwitterConfig;
     private static instance: TwitterService;
     private runtime: IAgentRuntime;
+    private tweetedTokens: Map<string, Set<string>> = new Map();
 
     private constructor(client: Scraper, config: TwitterConfig, runtime: IAgentRuntime) {
         this.client = client;
@@ -115,6 +116,20 @@ Example SELL style:
         return result.trim();
     }
 
+    private getTokenActionKey(token: string, action: string): string {
+        return `${token}-${action}`;
+    }
+
+    private hasTokenBeenTweeted(token: string, action: string): boolean {
+        const key = this.getTokenActionKey(token, action);
+        return this.tweetedTokens.has(key);
+    }
+
+    private markTokenAsTweeted(token: string, action: string): void {
+        const key = this.getTokenActionKey(token, action);
+        this.tweetedTokens.set(key, new Set([Date.now().toString()]));
+    }
+
     async notifySuccessfulTrades(executions: ExecutionResult[]): Promise<void> {
         const successfulTrades = executions.filter(exec => 
             exec.success && 
@@ -124,7 +139,9 @@ Example SELL style:
             // Skip LOSS SELL notifications
             !(exec.action === "SELL" && exec.decision?.recommendation === "SELL" && 
               (exec.decision.reasoning.toLowerCase().includes("loss") || 
-               exec.decision.reasoning.toLowerCase().includes("stop loss")))
+               exec.decision.reasoning.toLowerCase().includes("stop loss"))) &&
+            // Add check for previously tweeted tokens
+            !this.hasTokenBeenTweeted(exec.token.symbol, exec.action)
         );
 
         for (const trade of successfulTrades) {
@@ -164,7 +181,11 @@ Example SELL style:
                 profitPercent: trade.decision?.opportunities?.[0] || undefined
             };
 
-            await this.postTradeAlert(alert);
+            const success = await this.postTradeAlert(alert);
+            if (success) {
+                // Mark the token as tweeted only if the tweet was successful
+                this.markTokenAsTweeted(trade.token!.symbol, trade.action);
+            }
         }
     }
 
