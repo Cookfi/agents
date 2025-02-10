@@ -2410,6 +2410,9 @@ importers:
 
   packages/plugin-cookfi:
     dependencies:
+      '@coinbase/coinbase-sdk':
+        specifier: ^0.1.0
+        version: 0.1.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       '@elizaos/core':
         specifier: workspace:*
         version: link:../core
@@ -6493,6 +6496,9 @@ packages:
     resolution: {integrity: sha512-RqnViEuhPHa0uTWTA08R6G7JIco8s4hPiX/ChbeXC0q4h+0cGATC1bJxIW73NMJXEZfLPitM0871UZPdnDXxuw==}
     peerDependencies:
       '@coinbase/coinbase-sdk': ^0.13.0
+
+  '@coinbase/coinbase-sdk@0.1.1':
+    resolution: {integrity: sha512-ccX+Ue2wETtefMeXweiQwP7hmeDy/cPVpzQcD4Gfro3rFTyBCVkpH4Z2JtdWTLGLv7qnMFWWfAIY1ouPM/UpBw==}
 
   '@coinbase/coinbase-sdk@0.10.0':
     resolution: {integrity: sha512-sqLH7dE/0XSn5jHddjVrC1PR77sQUEytYcQAlH2d8STqRARcvddxVAByECUIL32MpbdJY7Wca3KfSa6qo811Mg==}
@@ -31098,6 +31104,24 @@ snapshots:
       - debug
       - openai
       - typescript
+      - utf-8-validate
+
+  '@coinbase/coinbase-sdk@0.1.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)':
+    dependencies:
+      '@scure/bip32': 1.6.2
+      axios: 1.7.9(debug@4.4.0)
+      axios-mock-adapter: 1.22.0(axios@1.7.9)
+      axios-retry: 4.5.0(axios@1.7.9)
+      bip32: 4.0.0
+      bip39: 3.1.0
+      decimal.js: 10.5.0
+      dotenv: 16.4.7
+      ethers: 6.13.5(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      node-jose: 2.2.0
+      secp256k1: 5.0.1
+    transitivePeerDependencies:
+      - bufferutil
+      - debug
       - utf-8-validate
 
   '@coinbase/coinbase-sdk@0.10.0(bufferutil@4.0.9)(typescript@5.6.3)(utf-8-validate@6.0.5)(zod@3.24.1)':

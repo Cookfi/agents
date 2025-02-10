@@ -4,24 +4,31 @@ import { BASE_TRADING_CONFIG } from "./config";
 import type { BaseSwapParams, BaseSwapResponse } from "./types";
 
 export class BaseTradingService {
-    private wallet: Wallet;
+    private wallet: Wallet | null = null;
+    private isConfigured: boolean = false;
 
     constructor() {
         const apiKeyName = process.env.COOKFI_CDP_API_KEY_NAME;
         const privateKey = process.env.COOKFI_CDP_PRIVATE_KEY;
 
         if (!apiKeyName || !privateKey) {
-            throw new Error("COOKFI_CDP_API_KEY_NAME and COOKFI_CDP_PRIVATE_KEY are required");
+            elizaLogger.warn("Base trading service not configured: COOKFI_CDP_API_KEY_NAME and/or COOKFI_CDP_PRIVATE_KEY missing");
+            return;
         }
 
         // Initialize CDP SDK
         Coinbase.configure({ apiKeyName, privateKey });
+        this.isConfigured = true;
     }
 
     /**
      * Initialize or retrieve a wallet
      */
     private async getWallet(networkId?: string): Promise<Wallet> {
+        if (!this.isConfigured) {
+            throw new Error("Base trading service not configured - missing environment variables");
+        }
+
         try {
             if (!this.wallet) {
                 this.wallet = await Wallet.create({ 

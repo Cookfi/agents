@@ -5,10 +5,8 @@ import { MoralisService } from "../services/moralis";
 import { PortfolioService } from "../services/portfolio";
 import { TokenAnalysisService } from "../services/tokenAnalysis";
 import { TopWalletsService } from "../services/topwallets";
-import { TradingService } from "../services/trading/solana";
 import { TwitterService } from "../services/twitter";
 import { deduplicateTokens } from "../utils/token";
-
 export class TradingWorkflow {
     private runtime: IAgentRuntime;
     private isProcessing = false;
@@ -20,7 +18,6 @@ export class TradingWorkflow {
     private portfolioService: PortfolioService;
     private tokenAnalysisService: TokenAnalysisService;
     private decisionMakerService: DecisionMakerService;
-    private tradingService: TradingService;
     private executionService: ExecutionService;
     private twitterService?: TwitterService;
     private moralisService: MoralisService;
@@ -32,9 +29,6 @@ export class TradingWorkflow {
         this.portfolioService = new PortfolioService();
         this.tokenAnalysisService = new TokenAnalysisService();
         this.decisionMakerService = new DecisionMakerService(runtime);
-        this.tradingService = new TradingService({
-            rpcUrl: process.env.SOLANA_RPC_URL
-        });
         this.executionService = new ExecutionService({
             isDryRun: process.env.COOKFI_DRY_RUN === 'true',
             rpcUrl: process.env.SOLANA_RPC_URL
@@ -73,10 +67,6 @@ export class TradingWorkflow {
                     this.portfolioService.getTokens(),
                     this.moralisService.getExperiencedBuyerTokens()
                 ]);
-
-                console.log({experiencedBuyerTokens});
-
-                return;
 
                 // Combine and deduplicate tokens
                 const tokensToAnalyze = deduplicateTokens([
