@@ -1,4 +1,4 @@
-# CookFi AI
+# Traiders.fun
 
 An autonomous degen ai traders cooking up alpha and gains on Solana
 
