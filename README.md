@@ -4,7 +4,7 @@ An autonomous degen ai traders cooking up alpha and gains on Solana
 
 ## The code: 
 
-- All the code is managed by our custom plugin here: https://github.com/Cookfi/agents/tree/develop/packages/plugin-cookfi
+- All the code is managed by our custom plugin here: https://github.com/Traidersdotfun/agents/tree/develop/packages/plugin-traidersdotfun
 
 ## Key Goals:
 
@@ -21,14 +21,14 @@ An autonomous degen ai traders cooking up alpha and gains on Solana
 ```
   TELEGRAM_BOT_TOKEN=
   OPENAI_API_KEY=
-  COOKFI_COOKIE_API_KEY=
-  COOKFI_BIRDEYE_API_KEY=
-  COOKFI_DRY_RUN=true
-  COOKFI_SOLANA_PRIVATE_KEY=
-  COOKFI_SOLANA_PUBLIC_KEY=
-  COOKFI_SOLANA_RPC_URL=https://api.devnet.solana.com
+  TRAIDERSDOTFUN_COOKIE_API_KEY=
+  TRAIDERSDOTFUN_BIRDEYE_API_KEY=
+  TRAIDERSDOTFUN_DRY_RUN=true
+  TRAIDERSDOTFUN_SOLANA_PRIVATE_KEY=
+  TRAIDERSDOTFUN_SOLANA_PUBLIC_KEY=
+  TRAIDERSDOTFUN_SOLANA_RPC_URL=https://api.devnet.solana.com
 ```
 - Then run
   - `pnpm install`
   - `pnpm build`
-  - `pnpm start:debug --character="../characters/cookfi.character.json" | tee output.log`
+  - `pnpm start:debug --character="../characters/traidersdotfun.character.json" | tee output.log`

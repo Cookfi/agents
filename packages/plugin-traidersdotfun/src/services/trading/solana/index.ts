@@ -10,7 +10,7 @@ import type {
     SwapParams,
     SwapResponse,
     TransferParams,
-    TransferResponse
+    TransferResponse,
 } from "./types";
 
 const SOL_ADDRESS = "So11111111111111111111111111111111111111112";
@@ -24,24 +24,22 @@ export class SolanaTradingService {
     private agent: SolanaAgentKit;
 
     constructor() {
-        const privateKeyString = process.env.COOKFI_SOLANA_PRIVATE_KEY;
+        const privateKeyString = process.env.TRAIDERSDOTFUN_SOLANA_PRIVATE_KEY;
         if (!privateKeyString) {
-            throw new Error("COOKFI_SOLANA_PRIVATE_KEY is required");
+            throw new Error("TRAIDERSDOTFUN_SOLANA_PRIVATE_KEY is required");
         }
 
-        const rpcUrl = process.env.COOKFI_SOLANA_RPC_URL;
+        const rpcUrl = process.env.TRAIDERSDOTFUN_SOLANA_RPC_URL;
         if (!rpcUrl) {
-            throw new Error("COOKFI_SOLANA_RPC_URL is required");
+            throw new Error("TRAIDERSDOTFUN_SOLANA_RPC_URL is required");
         }
 
         this.connection = new Connection(rpcUrl);
 
         // Initialize SolanaAgentKit with decoded private key
-        this.agent = new SolanaAgentKit(
-            privateKeyString,
-            rpcUrl,
-            { OPENAI_API_KEY: process.env.OPENAI_API_KEY! }
-        );
+        this.agent = new SolanaAgentKit(privateKeyString, rpcUrl, {
+            OPENAI_API_KEY: process.env.OPENAI_API_KEY!,
+        });
     }
 
     /**
@@ -54,61 +52,80 @@ export class SolanaTradingService {
 
         // Check initial slippage is within bounds
         if (currentSlippage > MAX_SLIPPAGE) {
-            const error = new Error(`Initial slippage ${currentSlippage.toFixed(1)}% exceeds maximum allowed ${MAX_SLIPPAGE}%`);
+            const error = new Error(
+                `Initial slippage ${currentSlippage.toFixed(
+                    1
+                )}% exceeds maximum allowed ${MAX_SLIPPAGE}%`
+            );
             elizaLogger.error("Swap failed - slippage too high:", {
                 initialSlippage: `${currentSlippage.toFixed(1)}%`,
-                maxAllowed: `${MAX_SLIPPAGE}%`
+                maxAllowed: `${MAX_SLIPPAGE}%`,
             });
             throw error;
         }
 
         while (retryCount < MAX_RETRIES) {
             try {
-                elizaLogger.log(`Swap attempt ${retryCount + 1}/${MAX_RETRIES}`, {
-                    slippage: `${currentSlippage}%`,
-                    fromToken: params.fromToken,
-                    toToken: params.toToken,
-                    amount: params.amount
-                });
+                elizaLogger.log(
+                    `Swap attempt ${retryCount + 1}/${MAX_RETRIES}`,
+                    {
+                        slippage: `${currentSlippage}%`,
+                        fromToken: params.fromToken,
+                        toToken: params.toToken,
+                        amount: params.amount,
+                    }
+                );
 
                 return await this.swap({
                     ...params,
-                    slippage: currentSlippage
+                    slippage: currentSlippage,
                 });
-
             } catch (error) {
                 // Ensure error is properly captured
-                lastError = error instanceof Error ? error : new Error(String(error));
+                lastError =
+                    error instanceof Error ? error : new Error(String(error));
                 retryCount++;
-                
-                elizaLogger.warn(`Swap failed, attempt ${retryCount}/${MAX_RETRIES}`, {
-                    error: lastError.message,
-                    currentSlippage: `${currentSlippage}%`,
-                    nextSlippage: `${Math.min(currentSlippage * 2, MAX_SLIPPAGE)}%`
-                });
-                
+
+                elizaLogger.warn(
+                    `Swap failed, attempt ${retryCount}/${MAX_RETRIES}`,
+                    {
+                        error: lastError.message,
+                        currentSlippage: `${currentSlippage}%`,
+                        nextSlippage: `${Math.min(
+                            currentSlippage * 2,
+                            MAX_SLIPPAGE
+                        )}%`,
+                    }
+                );
+
                 // Calculate next slippage before checking if we should continue
-                const nextSlippage = Math.min(currentSlippage * 2, MAX_SLIPPAGE);
-                
+                const nextSlippage = Math.min(
+                    currentSlippage * 2,
+                    MAX_SLIPPAGE
+                );
+
                 // If we've hit max retries or would exceed max slippage, break
                 if (retryCount >= MAX_RETRIES || nextSlippage > MAX_SLIPPAGE) {
                     break;
                 }
 
                 currentSlippage = nextSlippage;
-                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+                await new Promise((resolve) =>
+                    setTimeout(resolve, RETRY_DELAY)
+                );
             }
         }
 
-        const errorMessage = `Swap failed after ${retryCount} attempts. ` +
-            `Last error: ${lastError?.message || 'Unknown error'}. ` +
+        const errorMessage =
+            `Swap failed after ${retryCount} attempts. ` +
+            `Last error: ${lastError?.message || "Unknown error"}. ` +
             `Final slippage tried: ${currentSlippage.toFixed(1)}%`;
 
         elizaLogger.error("All swap attempts failed:", {
             attempts: retryCount,
             maxSlippageReached: currentSlippage >= MAX_SLIPPAGE,
-            lastError: lastError?.message || 'Unknown error',
-            finalSlippage: `${currentSlippage.toFixed(1)}%`
+            lastError: lastError?.message || "Unknown error",
+            finalSlippage: `${currentSlippage.toFixed(1)}%`,
         });
 
         throw new Error(errorMessage);
@@ -125,9 +142,13 @@ export class SolanaTradingService {
             const outputMint = new PublicKey(
                 params.toToken === "SOL" ? SOL_ADDRESS : params.toToken
             );
-            const inputMint = params.fromToken ? new PublicKey(
-                params.fromToken === "SOL" ? SOL_ADDRESS : params.fromToken
-            ) : undefined;
+            const inputMint = params.fromToken
+                ? new PublicKey(
+                      params.fromToken === "SOL"
+                          ? SOL_ADDRESS
+                          : params.fromToken
+                  )
+                : undefined;
 
             // Convert percentage to basis points (1% = 100 basis points)
             const slippageBps = Math.floor(params.slippage * 100);
@@ -136,7 +157,7 @@ export class SolanaTradingService {
                 outputMint: outputMint.toString(),
                 inputMint: inputMint?.toString(),
                 inputAmount: params.amount,
-                slippageBps
+                slippageBps,
             });
 
             try {
@@ -152,20 +173,31 @@ export class SolanaTradingService {
                 return {
                     signature,
                     fromAmount: params.amount,
-                    toAmount: params.amount
+                    toAmount: params.amount,
                 };
             } catch (error) {
                 console.log(error);
                 if (error instanceof SendTransactionError) {
                     const logs = error.logs;
-                    elizaLogger.error("Swap transaction failed. Full logs:", logs);
-                    
+                    elizaLogger.error(
+                        "Swap transaction failed. Full logs:",
+                        logs
+                    );
+
                     // Check for specific error conditions
-                    if (logs?.some(log => log.includes("insufficient funds"))) {
+                    if (
+                        logs?.some((log) => log.includes("insufficient funds"))
+                    ) {
                         throw new Error("Insufficient funds for swap");
                     }
-                    if (logs?.some(log => log.includes("slippage tolerance exceeded"))) {
-                        throw new Error("Price moved too much, try increasing slippage");
+                    if (
+                        logs?.some((log) =>
+                            log.includes("slippage tolerance exceeded")
+                        )
+                    ) {
+                        throw new Error(
+                            "Price moved too much, try increasing slippage"
+                        );
                     }
                 }
                 throw error;
@@ -174,9 +206,10 @@ export class SolanaTradingService {
             console.log(error);
             elizaLogger.error("Swap failed:", {
                 error,
-                message: error instanceof Error ? error.message : "Unknown error",
+                message:
+                    error instanceof Error ? error.message : "Unknown error",
                 token: params.toToken,
-                amount: params.amount
+                amount: params.amount,
             });
             throw error;
         }
