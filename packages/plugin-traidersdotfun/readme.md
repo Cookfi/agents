@@ -1,4 +1,4 @@
-# Cookfi Plugin
+# Traidersdotfun Plugin
 
 An automated DEFAI plugin for Solana with integrated autonomous trading based on market analysis, social analysis, trust scoring.
 
@@ -22,7 +22,7 @@ An automated DEFAI plugin for Solana with integrated autonomous trading based on
 ## Installation
 
 ```bash
-npm install @elizaos/plugin-cookfi
+npm install @elizaos/plugin-traidersdotfun
 ```
 
 ## Prerequisites
@@ -30,32 +30,32 @@ npm install @elizaos/plugin-cookfi
 The following environment variables need to be configured:
 
 ```bash
-# Cookfi Plugin Configuration
+# Traidersdotfun Plugin Configuration
 
 # API Keys
-COOKFI_COOKIE_API_KEY=           # API key for Cookie.fun social data
-COOKFI_MORALIS_API_KEY=          # API key for Moralis market data
-COOKFI_TOPWALLETS_API_KEY=       # API key for TopWallets.ai trading analysis
+TRAIDERSDOTFUN_COOKIE_API_KEY=           # API key for Cookie.fun social data
+TRAIDERSDOTFUN_MORALIS_API_KEY=          # API key for Moralis market data
+TRAIDERSDOTFUN_TOPWALLETS_API_KEY=       # API key for TopWallets.ai trading analysis
 
 # TopWallets Configuration
-COOKFI_TOPWALLETS_API_URL=       # TopWallets API URL (defaults to https://www.topwallets.ai)
+TRAIDERSDOTFUN_TOPWALLETS_API_URL=       # TopWallets API URL (defaults to https://www.topwallets.ai)
 
 # Solana Configuration
-COOKFI_SOLANA_PRIVATE_KEY=       # Your Solana wallet private key
-COOKFI_SOLANA_PUBLIC_KEY=        # Your Solana wallet public address
-COOKFI_SOLANA_RPC_URL=           # Solana RPC endpoint (defaults to https://api.mainnet-beta.solana.com)
+TRAIDERSDOTFUN_SOLANA_PRIVATE_KEY=       # Your Solana wallet private key
+TRAIDERSDOTFUN_SOLANA_PUBLIC_KEY=        # Your Solana wallet public address
+TRAIDERSDOTFUN_SOLANA_RPC_URL=           # Solana RPC endpoint (defaults to https://api.mainnet-beta.solana.com)
 
 # Execution Mode
-COOKFI_DRY_RUN=true             # Set to true for testing without real transactions
+TRAIDERSDOTFUN_DRY_RUN=true             # Set to true for testing without real transactions
 ```
 
 ## Usage
 
 ```typescript
-import createCookfiPlugin from '@elizaos/plugin-cookfi';
+import createTraidersdotfunPlugin from '@elizaos/plugin-traidersdotfun';
 import { IAgentRuntime } from '@elizaos/core';
 
-const plugin = await createCookfiPlugin(
+const plugin = await createTraidersdotfunPlugin(
   (key: string) => process.env[key],
   runtime
 );

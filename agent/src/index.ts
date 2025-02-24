@@ -39,7 +39,7 @@ import {
     parseBooleanFromText,
     settings,
     stringToUuid,
-    validateCharacterConfig
+    validateCharacterConfig,
 } from "@elizaos/core";
 import { onchainJson } from "@elizaos/plugin-iq6900";
 import { PrimusAdapter } from "@elizaos/plugin-primus";
@@ -60,7 +60,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import yargs from "yargs";
 
-import { cookfiPlugin } from "@elizaos/plugin-cookfi";
+import { traidersdotfunPlugin } from "@elizaos/plugin-traidersdotfun";
 const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
 const __dirname = path.dirname(__filename); // get the name of the directory
 
@@ -918,9 +918,7 @@ export async function createAgent(
         evaluators: [],
         character,
         // character.plugins are handled when clients are added
-        plugins: [
-            cookfiPlugin,
-        ],
+        plugins: [traidersdotfunPlugin],
         providers: [],
         managers: [],
         cacheManager: cache,

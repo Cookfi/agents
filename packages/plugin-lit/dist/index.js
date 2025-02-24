@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 import LitJsSdk from '@lit-protocol/lit-node-client';
 import { LIT_NETWORK, LIT_ABILITY } from '@lit-protocol/constants';
-import { LitActionResource, createSiweMessage, generateAuthSig } from '@lit-protocol/auth-helpers';
+import { createSiweMessage, generateAuthSig, LitActionResource } from '@lit-protocol/auth-helpers';
 import { composeContext, generateObjectDeprecated, ModelClass } from '@elizaos/core';
 import { z } from 'zod';
 import { BaseEthereumAddressSchema, NETWORK_CONFIGS } from '@lit-protocol/aw-tool';
@@ -217,9 +217,7 @@ var deployedCids = DEFAULT_CIDS;
 var ipfsPath = join(__dirname, "../../../dist/ipfs.json");
 if (existsSync(ipfsPath)) {
   try {
-    const ipfsModule = await import(ipfsPath, {
-      assert: { type: "json" }
-    });
+    const ipfsModule = await import(ipfsPath, { assert: { type: 'json' } });
     deployedCids = ipfsModule.default;
   } catch (error) {
     console.warn("Failed to load ipfs.json, using default CIDs:", error);
@@ -632,9 +630,7 @@ var deployedCids2 = DEFAULT_CIDS2;
 var ipfsPath2 = join(__dirname2, "../../../dist/ipfs.json");
 if (existsSync(ipfsPath2)) {
   try {
-    const ipfsModule = await import(ipfsPath2, {
-      assert: { type: "json" }
-    });
+    const ipfsModule = await import(ipfsPath2, { assert: { type: 'json' } });
     deployedCids2 = ipfsModule.default;
   } catch (error) {
     console.warn("Failed to load ipfs.json, using default CIDs:", error);
@@ -882,9 +878,7 @@ var deployedCids3 = DEFAULT_CIDS3;
 var ipfsPath3 = join(__dirname3, "../../../dist/ipfs.json");
 if (existsSync(ipfsPath3)) {
   try {
-    const ipfsModule = await import(ipfsPath3, {
-      assert: { type: "json" }
-    });
+    const ipfsModule = await import(ipfsPath3, { assert: { type: 'json' } });
     deployedCids3 = ipfsModule.default;
   } catch (error) {
     console.warn("Failed to load ipfs.json, using default CIDs:", error);

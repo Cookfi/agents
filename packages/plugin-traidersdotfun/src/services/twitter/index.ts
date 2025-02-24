@@ -1,6 +1,12 @@
 import type { IAgentRuntime } from "@elizaos/core";
-import { composeContext, elizaLogger, generateText, ModelClass, stringToUuid } from "@elizaos/core";
-import { Scraper } from 'agent-twitter-client';
+import {
+    composeContext,
+    elizaLogger,
+    generateText,
+    ModelClass,
+    stringToUuid,
+} from "@elizaos/core";
+import { Scraper } from "agent-twitter-client";
 import type { ExecutionResult } from "../execution/types";
 import type { TradeAlert, TwitterConfig } from "./types";
 import { TwitterConfigSchema } from "./types";
@@ -12,20 +18,28 @@ export class TwitterService {
     private runtime: IAgentRuntime;
     private tweetedTokens: Map<string, Set<string>> = new Map();
 
-    private constructor(client: Scraper, config: TwitterConfig, runtime: IAgentRuntime) {
+    private constructor(
+        client: Scraper,
+        config: TwitterConfig,
+        runtime: IAgentRuntime
+    ) {
         this.client = client;
         this.config = config;
         this.runtime = runtime;
     }
 
-    public static async getInstance(runtime: IAgentRuntime): Promise<TwitterService | undefined> {
+    public static async getInstance(
+        runtime: IAgentRuntime
+    ): Promise<TwitterService | undefined> {
         if (!TwitterService.instance) {
-            const username = process.env.COOKFI_TWITTER_USERNAME;
-            const password = process.env.COOKFI_TWITTER_PASSWORD;
-            const email = process.env.COOKFI_TWITTER_EMAIL;
+            const username = process.env.TRAIDERSDOTFUN_TWITTER_USERNAME;
+            const password = process.env.TRAIDERSDOTFUN_TWITTER_PASSWORD;
+            const email = process.env.TRAIDERSDOTFUN_TWITTER_EMAIL;
 
             if (!username || !password || !email) {
-                elizaLogger.warn("Twitter credentials not configured, notifications disabled");
+                elizaLogger.warn(
+                    "Twitter credentials not configured, notifications disabled"
+                );
                 return undefined;
             }
 
@@ -35,13 +49,17 @@ export class TwitterService {
                     username,
                     password,
                     email,
-                    dryRun: false
+                    dryRun: false,
                 });
 
                 const scraper = new Scraper();
                 await scraper.login(username, password, email);
 
-                TwitterService.instance = new TwitterService(scraper, config, runtime);
+                TwitterService.instance = new TwitterService(
+                    scraper,
+                    config,
+                    runtime
+                );
             } catch (error) {
                 console.log("Failed to initialize Twitter service:", error);
                 return undefined;
@@ -50,13 +68,17 @@ export class TwitterService {
         return TwitterService.instance;
     }
 
-    private calculateRiskLevel(marketData: TradeAlert["marketData"], confidence: number): string {
+    private calculateRiskLevel(
+        marketData: TradeAlert["marketData"],
+        confidence: number
+    ): string {
         // Base risk on price volatility, liquidity, and confidence
         const volatilityRisk = Math.abs(marketData.priceChange24h) > 20 ? 1 : 0;
         const liquidityRisk = marketData.liquidity.usd < 10000 ? 1 : 0;
         const confidenceRisk = confidence < 0.6 ? 1 : 0;
 
-        const totalRiskFactors = volatilityRisk + liquidityRisk + confidenceRisk;
+        const totalRiskFactors =
+            volatilityRisk + liquidityRisk + confidenceRisk;
 
         if (totalRiskFactors >= 2) return "HIGH";
         if (totalRiskFactors === 1) return "MEDIUM";
@@ -64,15 +86,17 @@ export class TwitterService {
     }
 
     private async generateTweetContent(alert: TradeAlert): Promise<string> {
-        const template = `You are a degen trader experimenting with Solana memecoins. Write a casual, fun tweet about your ${alert.action} trade.
+        const template = `You are a degen trader experimenting with Solana memecoins. Write a casual, fun tweet about your ${
+            alert.action
+        } trade.
 
 Context:
 Token: ${alert.token}
 Action: ${alert.action}
 Price: $${alert.price?.toFixed(6)}
 Reasoning: ${alert.reason}
-Key Opportunities: ${alert.opportunities?.join(', ')}
-Risks: ${alert.risks?.join(', ')}
+Key Opportunities: ${alert.opportunities?.join(", ")}
+Risks: ${alert.risks?.join(", ")}
 
 Guidelines:
 - Be casual and fun, like you're talking to friends
@@ -101,10 +125,10 @@ Example SELL style:
                 roomId: stringToUuid(`tweet-${alert.token}`),
                 content: {
                     text: alert.token,
-                    type: "trade_alert"
-                }
+                    type: "trade_alert",
+                },
             }),
-            template
+            template,
         });
 
         const result = await generateText({
@@ -131,23 +155,29 @@ Example SELL style:
     }
 
     async notifySuccessfulTrades(executions: ExecutionResult[]): Promise<void> {
-        const successfulTrades = executions.filter(exec => 
-            exec.success && 
-            (exec.action === "BUY" || exec.action === "SELL") &&
-            exec.token &&
-            exec.marketData?.[0] &&
-            // Skip LOSS SELL notifications
-            !(exec.action === "SELL" && exec.decision?.recommendation === "SELL" && 
-              (exec.decision.reasoning.toLowerCase().includes("loss") || 
-               exec.decision.reasoning.toLowerCase().includes("stop loss"))) &&
-            // Add check for previously tweeted tokens
-            !this.hasTokenBeenTweeted(exec.token.symbol, exec.action)
+        const successfulTrades = executions.filter(
+            (exec) =>
+                exec.success &&
+                (exec.action === "BUY" || exec.action === "SELL") &&
+                exec.token &&
+                exec.marketData?.[0] &&
+                // Skip LOSS SELL notifications
+                !(
+                    exec.action === "SELL" &&
+                    exec.decision?.recommendation === "SELL" &&
+                    (exec.decision.reasoning.toLowerCase().includes("loss") ||
+                        exec.decision.reasoning
+                            .toLowerCase()
+                            .includes("stop loss"))
+                ) &&
+                // Add check for previously tweeted tokens
+                !this.hasTokenBeenTweeted(exec.token.symbol, exec.action)
         );
 
         for (const trade of successfulTrades) {
             const marketData = trade.marketData![0];
             const confidence = trade.decision?.confidence || 0;
-            
+
             const alert: TradeAlert = {
                 token: trade.token!.symbol,
                 tokenAddress: trade.token!.address,
@@ -158,8 +188,8 @@ Example SELL style:
                         priceChange24h: marketData.priceChange?.h24 || 0,
                         volume24h: marketData.volume?.h24 || 0,
                         liquidity: {
-                            usd: marketData.liquidity?.usd || 0
-                        }
+                            usd: marketData.liquidity?.usd || 0,
+                        },
                     },
                     confidence / 100
                 ),
@@ -167,8 +197,8 @@ Example SELL style:
                     priceChange24h: marketData.priceChange?.h24 || 0,
                     volume24h: marketData.volume?.h24 || 0,
                     liquidity: {
-                        usd: marketData.liquidity?.usd || 0
-                    }
+                        usd: marketData.liquidity?.usd || 0,
+                    },
                 },
                 timestamp: Date.now(),
                 signature: trade.signature,
@@ -178,7 +208,7 @@ Example SELL style:
                 // Add decision points
                 risks: trade.decision?.risks || [],
                 opportunities: trade.decision?.opportunities || [],
-                profitPercent: trade.decision?.opportunities?.[0] || undefined
+                profitPercent: trade.decision?.opportunities?.[0] || undefined,
             };
 
             const success = await this.postTradeAlert(alert);
@@ -194,7 +224,10 @@ Example SELL style:
             const tweetContent = await this.generateTweetContent(alert);
 
             if (this.config.dryRun) {
-                elizaLogger.log("Dry run mode - would have posted tweet:", tweetContent);
+                elizaLogger.log(
+                    "Dry run mode - would have posted tweet:",
+                    tweetContent
+                );
                 return true;
             }
 
@@ -214,4 +247,4 @@ Example SELL style:
     }
 }
 
-export default TwitterService; 
+export default TwitterService;

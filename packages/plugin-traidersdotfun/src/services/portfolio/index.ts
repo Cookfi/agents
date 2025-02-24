@@ -6,7 +6,7 @@ import type {
     PortfolioResponse,
     SwapHistoryResponse,
     SwapTransaction,
-    TokenBalance
+    TokenBalance,
 } from "./types";
 
 export class PortfolioService {
@@ -15,18 +15,22 @@ export class PortfolioService {
     private cachedPortfolio: PortfolioResponse | null = null;
 
     constructor() {
-        this.walletAddress = process.env.COOKFI_SOLANA_PUBLIC_KEY || "";
+        this.walletAddress = process.env.TRAIDERSDOTFUN_SOLANA_PUBLIC_KEY || "";
         if (!this.walletAddress) {
-            elizaLogger.warn("COOKFI_SOLANA_PUBLIC_KEY is not set in environment");
+            elizaLogger.warn(
+                "TRAIDERSDOTFUN_SOLANA_PUBLIC_KEY is not set in environment"
+            );
         }
     }
 
     public async initialize(): Promise<void> {
         if (Moralis.Core.isStarted) return;
 
-        const apiKey = process.env.COOKFI_MORALIS_API_KEY;
+        const apiKey = process.env.TRAIDERSDOTFUN_MORALIS_API_KEY;
         if (!apiKey) {
-            throw new Error("COOKFI_MORALIS_API_KEY not found in environment variables");
+            throw new Error(
+                "TRAIDERSDOTFUN_MORALIS_API_KEY not found in environment variables"
+            );
         }
 
         try {
@@ -101,11 +105,12 @@ export class PortfolioService {
             const response = await fetch(
                 `https://solana-gateway.moralis.io/account/${PORTFOLIO_CONFIG.NETWORK}/${this.walletAddress}/swaps?order=DESC&tokenAddress=${tokenAddress}`,
                 {
-                    method: 'GET',
+                    method: "GET",
                     headers: {
-                        'accept': 'application/json',
-                        'X-API-Key': process.env.COOKFI_MORALIS_API_KEY || ''
-                    }
+                        accept: "application/json",
+                        "X-API-Key":
+                            process.env.TRAIDERSDOTFUN_MORALIS_API_KEY || "",
+                    },
                 }
             );
 
@@ -113,7 +118,7 @@ export class PortfolioService {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            const data = await response.json() as SwapHistoryResponse;
+            const data = (await response.json()) as SwapHistoryResponse;
             return data.result;
         } catch (error) {
             elizaLogger.error("Failed to fetch swap history:", error);
@@ -129,19 +134,25 @@ export class PortfolioService {
     async calculateCostBasis(tokenAddress: string): Promise<number> {
         try {
             const swaps = await this.getAllSwaps(tokenAddress);
-            
-            let netTokens = 0;  // Running total of tokens held
-            let totalCost = 0;  // Running total of SOL spent/received
+
+            let netTokens = 0; // Running total of tokens held
+            let totalCost = 0; // Running total of SOL spent/received
 
             for (const swap of swaps) {
-                if (swap.transactionType === 'buy') {
-                    if (swap.bought.address.toLowerCase() === tokenAddress.toLowerCase()) {
+                if (swap.transactionType === "buy") {
+                    if (
+                        swap.bought.address.toLowerCase() ===
+                        tokenAddress.toLowerCase()
+                    ) {
                         // Buying tokens: Add to position
                         netTokens += parseFloat(swap.bought.amount);
                         totalCost += parseFloat(swap.sold.amount); // SOL spent
                     }
-                } else if (swap.transactionType === 'sell') {
-                    if (swap.sold.address.toLowerCase() === tokenAddress.toLowerCase()) {
+                } else if (swap.transactionType === "sell") {
+                    if (
+                        swap.sold.address.toLowerCase() ===
+                        tokenAddress.toLowerCase()
+                    ) {
                         // Selling tokens: Reduce position
                         netTokens -= parseFloat(swap.sold.amount);
                         totalCost -= parseFloat(swap.bought.amount); // SOL received
@@ -170,21 +181,25 @@ export class PortfolioService {
             }
 
             // Process tokens in parallel for better performance
-            const tokens = await Promise.all(portfolio.tokens.map(async (token) => {
-                const costBasisNative = await this.calculateCostBasis(token.mint);
-                
-                return {
-                    symbol: token.symbol,
-                    name: token.name,
-                    address: token.mint,
-                    chainId: "solana",
-                    balance: {
-                        amount: parseFloat(token.amount),
-                        usdValue: 0,
-                        costBasisNative
-                    },
-                };
-            }));
+            const tokens = await Promise.all(
+                portfolio.tokens.map(async (token) => {
+                    const costBasisNative = await this.calculateCostBasis(
+                        token.mint
+                    );
+
+                    return {
+                        symbol: token.symbol,
+                        name: token.name,
+                        address: token.mint,
+                        chainId: "solana",
+                        balance: {
+                            amount: parseFloat(token.amount),
+                            usdValue: 0,
+                            costBasisNative,
+                        },
+                    };
+                })
+            );
 
             return tokens;
         } catch (error) {
