@@ -15,12 +15,13 @@ export class TokenAnalysisService {
 
     async analyzeToken(token: TokenResult): Promise<TokenAnalysisResult> {
         // Get market and social data in parallel
-        const [rawMarketData, socialData] = await Promise.all([
+        const [rawMarketData] = await Promise.all([
             this.dexScreenerService.getTokenInfo(token.address, token.chainId),
-            this.cookieService.searchTweets({
-                query: `${token.symbol} $${token.symbol}`,
-                max_results: 10
-            })
+            // Cookie.fun api access has been closed
+            // this.cookieService.searchTweets({
+            //     query: `${token.symbol} $${token.symbol}`,
+            //     max_results: 10
+            // })
         ]);
 
         // Filter market data based on pair age
@@ -30,7 +31,7 @@ export class TokenAnalysisService {
 
         return {
             marketAnalysis: marketData,
-            socialAnalysis: socialData,
+            socialAnalysis: [],
             positionAnalysis
         };
     }
