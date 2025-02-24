@@ -35,8 +35,10 @@ export class TwitterService {
             const username = process.env.TRAIDERSDOTFUN_TWITTER_USERNAME;
             const password = process.env.TRAIDERSDOTFUN_TWITTER_PASSWORD;
             const email = process.env.TRAIDERSDOTFUN_TWITTER_EMAIL;
+            const isEnabled =
+                process.env.TRAIDERSDOTFUN_ENABLE_TWITTING === "true";
 
-            if (!username || !password || !email) {
+            if (!username || !password || !email || !isEnabled) {
                 elizaLogger.warn(
                     "Twitter credentials not configured, notifications disabled"
                 );
@@ -50,6 +52,7 @@ export class TwitterService {
                     password,
                     email,
                     dryRun: false,
+                    isEnabled,
                 });
 
                 const scraper = new Scraper();
@@ -155,6 +158,10 @@ Example SELL style:
     }
 
     async notifySuccessfulTrades(executions: ExecutionResult[]): Promise<void> {
+        if (!this.config.isEnabled) {
+            return;
+        }
+
         const successfulTrades = executions.filter(
             (exec) =>
                 exec.success &&

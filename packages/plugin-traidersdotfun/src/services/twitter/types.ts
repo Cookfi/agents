@@ -1,28 +1,16 @@
 import { z } from "zod";
 
-export type TwitterConfig = {
-    enabled?: boolean;
-    username?: string;
-    password?: string;
-    email?: string;
-    dryRun?: boolean;
-    twoFactorSecret?: string;
-};
-
 export const TwitterConfigSchema = z.object({
     enabled: z.boolean(),
     username: z.string().min(1),
     password: z.string().min(1),
     email: z.string().email(),
-    dryRun: z
-        .boolean()
-        .optional()
-        .default(false),
-    twoFactorSecret: z
-        .string()
-        .optional()
-        .default("")
+    isEnabled: z.boolean().optional().default(false),
+    dryRun: z.boolean().optional().default(false),
+    twoFactorSecret: z.string().optional().default(""),
 });
+
+export type TwitterConfig = z.infer<typeof TwitterConfigSchema>;
 
 export interface TradeAlert {
     token: string;
