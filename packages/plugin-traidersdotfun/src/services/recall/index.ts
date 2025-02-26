@@ -341,10 +341,11 @@ export class RecallService extends Service {
             );
 
             const lastSynced = await this.runtime.cacheManager.get<{
-                value: { bucketAddress: Address; timestamp: number };
+                value: { bucketAddress: Address; timestamp: string };
             }>("recall/last-synced");
 
-            let lastSyncedTimestamp = lastSynced?.value?.timestamp ?? 0;
+            let lastSyncedTimestamp =
+                lastSynced?.value?.timestamp ?? "1977-01-01 00:00:00";
 
             const sqliteDB = this.runtime.databaseAdapter.db as Database;
             const unsyncedLogs = sqliteDB
@@ -388,11 +389,14 @@ export class RecallService extends Service {
                     elizaLogger.info(
                         `New batch size: ${batchSize + logSize} bytes`
                     );
-                    if (batchSize + logSize > batchSizeKB * 1024) {
+
+                    batch.push(jsonlEntry);
+                    batchSize += logSize;
+                    syncedLogIds.push(log.id);
+
+                    if (true) {
                         elizaLogger.info(
-                            `Batch size ${
-                                batchSize + logSize
-                            } bytes exceeds ${batchSizeKB} KB limit. Attempting sync...`
+                            `Batch size ${batchSize} bytes exceeds ${batchSizeKB} KB limit. Attempting sync...`
                         );
 
                         const logFileKey = await this.storeBatchToRecall(
@@ -424,10 +428,6 @@ export class RecallService extends Service {
                         batchSize = 0;
                         syncedLogIds = [];
                     }
-
-                    batch.push(jsonlEntry);
-                    batchSize += logSize;
-                    syncedLogIds.push(log.id);
                 } catch (error: any) {
                     elizaLogger.error(
                         `Error processing log entry ${log.id}: ${error.message}`
